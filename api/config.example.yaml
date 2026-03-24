@@ -1,0 +1,23 @@
+database:
+  host: localhost
+  port: "5432"
+  user: postgres
+  password: change_your_password_here
+  dbname: learn-lang
+
+server:
+  port: "8080"
+
+jwt:
+  secret: your-secret-key-change-in-production
+
+redis:
+  host: localhost
+  port: "6379"
+  password: ""
+  db: 0
+
+user:
+  username: user
+  password: change_your_password_here
+  email: user@example.com
