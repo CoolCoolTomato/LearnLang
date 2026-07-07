@@ -28,10 +28,6 @@ func main() {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	if err := database.CreateVectorIndex(); err != nil {
-		log.Fatal("Failed to create vector index:", err)
-	}
-
 	if err := database.InitUser(cfg); err != nil {
 		log.Fatal("Failed to initialize user:", err)
 	}

@@ -17,6 +17,11 @@ redis:
   password: ""
   db: 0
 
+milvus:
+  host: milvus
+  port: "19530"
+  collection: user_memory_summaries
+
 user:
   username: user
   password: change_your_password_here
