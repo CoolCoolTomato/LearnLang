@@ -11,6 +11,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Redis    RedisConfig    `mapstructure:"redis"`
+	Milvus   MilvusConfig   `mapstructure:"milvus"`
 	User     UserConfig     `mapstructure:"user"`
 }
 
@@ -37,6 +38,12 @@ type RedisConfig struct {
 	DB       int    `mapstructure:"db"`
 }
 
+type MilvusConfig struct {
+	Host       string `mapstructure:"host"`
+	Port       string `mapstructure:"port"`
+	Collection string `mapstructure:"collection"`
+}
+
 type UserConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
@@ -60,6 +67,9 @@ func Load() *Config {
 	viper.SetDefault("redis.port", "6379")
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("milvus.host", "localhost")
+	viper.SetDefault("milvus.port", "19530")
+	viper.SetDefault("milvus.collection", "user_memory_summaries")
 
 	viper.AutomaticEnv()
 

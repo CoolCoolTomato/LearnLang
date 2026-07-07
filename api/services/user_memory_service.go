@@ -1,12 +1,10 @@
 package services
 
 import (
-	"encoding/json"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"time"
 
-	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 )
 
@@ -27,20 +25,6 @@ type UserMemorySearchResult struct {
 	Distance float64
 }
 
-type userMemoryWithDistance struct {
-	models.UserMemory
-	Distance float64 `gorm:"column:distance"`
-}
-
-func parseEmbedding(embedding string) (pgvector.Vector, error) {
-	var embeddingSlice []float32
-	if err := json.Unmarshal([]byte(embedding), &embeddingSlice); err != nil {
-		return pgvector.Vector{}, err
-	}
-
-	return pgvector.NewVector(embeddingSlice), nil
-}
-
 func (ums *UserMemoryService) CreateUserMemory(userID int64, content, embedding, memoryType string, importanceScore float64) (*models.UserMemory, error) {
 	return ums.CreateUserMemorySummary(userID, content, embedding, memoryType, importanceScore, nil)
 }
@@ -57,11 +41,6 @@ func (ums *UserMemoryService) CreateUserMemorySummaryFromMessages(userID int64, 
 }
 
 func (ums *UserMemoryService) CreateUserMemorySummary(userID int64, summary, embedding, memoryType string, importanceScore float64, messageIDs []int64) (*models.UserMemory, error) {
-	vector, err := parseEmbedding(embedding)
-	if err != nil {
-		return nil, err
-	}
-
 	var startedAt *time.Time
 	var endedAt *time.Time
 	if len(messageIDs) > 0 {
@@ -86,7 +65,7 @@ func (ums *UserMemoryService) CreateUserMemorySummary(userID int64, summary, emb
 	memory := models.UserMemory{
 		UserID:          userID,
 		Summary:         summary,
-		Embedding:       vector,
+		VectorID:        "",
 		MemoryType:      memoryType,
 		ImportanceScore: importanceScore,
 		MessageCount:    len(messageIDs),
@@ -149,6 +128,25 @@ func (ums *UserMemoryService) GetUserMemory(memoryID int64) (*models.UserMemory,
 	return &memory, nil
 }
 
+func (ums *UserMemoryService) UpdateUserMemoryVectorID(memoryID int64, vectorID string) error {
+	return database.DB.Model(&models.UserMemory{}).
+		Where("id = ?", memoryID).
+		Update("vector_id", vectorID).Error
+}
+
+func (ums *UserMemoryService) GetUserMemoriesByVectorIDs(userID int64, vectorIDs []string) ([]models.UserMemory, error) {
+	if len(vectorIDs) == 0 {
+		return []models.UserMemory{}, nil
+	}
+
+	var memories []models.UserMemory
+	if err := database.DB.Where("user_id = ? AND vector_id IN ?", userID, vectorIDs).Find(&memories).Error; err != nil {
+		return nil, err
+	}
+
+	return memories, nil
+}
+
 func (ums *UserMemoryService) GetUserMemoryMessages(memoryID int64) ([]models.Message, error) {
 	var links []models.UserMemoryMessage
 	if err := database.DB.Preload("Message").
@@ -186,45 +184,11 @@ func (ums *UserMemoryService) ListUnlinkedMessagesForSummary(userID int64, limit
 }
 
 func (ums *UserMemoryService) SearchUserMemorySummaries(userID int64, embedding string, limit int, maxDistance *float64) ([]UserMemorySearchResult, error) {
-	vector, err := parseEmbedding(embedding)
-	if err != nil {
-		return nil, err
-	}
-
 	if limit <= 0 {
 		limit = 3
 	}
 
-	var memories []userMemoryWithDistance
-	if err := database.DB.Raw(`
-		SELECT *, embedding <-> ? AS distance
-		FROM user_memories
-		WHERE user_id = ?
-		ORDER BY embedding <-> ?
-		LIMIT ?
-	`, vector, userID, vector, limit).Scan(&memories).Error; err != nil {
-		return nil, err
-	}
-
-	results := make([]UserMemorySearchResult, 0, len(memories))
-	for _, memory := range memories {
-		if maxDistance != nil && memory.Distance > *maxDistance {
-			continue
-		}
-
-		messages, err := ums.GetUserMemoryMessages(memory.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		results = append(results, UserMemorySearchResult{
-			Memory:   memory.UserMemory,
-			Messages: messages,
-			Distance: memory.Distance,
-		})
-	}
-
-	return results, nil
+	return []UserMemorySearchResult{}, nil
 }
 
 func (ums *UserMemoryService) ListUserMemories(page, pageSize int, userID, memoryType string) (*UserMemoryListResult, error) {
@@ -257,13 +221,6 @@ func (ums *UserMemoryService) UpdateUserMemory(memoryID int64, content, embeddin
 
 	if content != "" {
 		memory.Summary = content
-	}
-	if embedding != "" {
-		vector, err := parseEmbedding(embedding)
-		if err != nil {
-			return nil, err
-		}
-		memory.Embedding = vector
 	}
 	if memoryType != "" {
 		memory.MemoryType = memoryType
