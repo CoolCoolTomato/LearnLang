@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"learnlang-api/agent/memory"
 	"learnlang-api/agent/prompts"
 	agenttools "learnlang-api/agent/tools"
 	"strings"
@@ -14,10 +15,18 @@ import (
 	lctools "github.com/tmc/langchaingo/tools"
 )
 
-type Service struct{}
+type Config struct {
+	MemoryStore *memory.Store
+}
 
-func NewService() *Service {
-	return &Service{}
+type Service struct {
+	memoryStore *memory.Store
+}
+
+func NewService(cfg Config) *Service {
+	return &Service{
+		memoryStore: cfg.MemoryStore,
+	}
 }
 
 func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, error) {
@@ -29,7 +38,17 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 	tools := []lctools.Tool{
 		agenttools.UserProfileSummaryTool{UserID: req.UserID},
 		agenttools.RecentConversationTool{UserID: req.UserID, Limit: 100, Timezone: req.Timezone},
-		agenttools.LongTermMemorySearchTool{UserID: req.UserID, Limit: 3, Timezone: req.Timezone},
+		agenttools.LongTermMemorySearchTool{
+			UserID:      req.UserID,
+			Limit:       3,
+			Timezone:    req.Timezone,
+			Store:       s.memoryStore,
+			APIKey:      req.Settings.EmbeddingAPIKey,
+			APIBaseURL:  req.Settings.EmbeddingAPIBaseURL,
+			Model:       req.Settings.EmbeddingModel,
+			FallbackKey: req.Settings.APIKey,
+			FallbackURL: req.Settings.APIBaseURL,
+		},
 	}
 
 	systemPrompt := prompts.ChatSystemPrompt(

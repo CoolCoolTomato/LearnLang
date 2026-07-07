@@ -10,11 +10,14 @@ type ChatRequest struct {
 }
 
 type UserSettings struct {
-	APIKey         string
-	APIBaseURL     string
-	Model          string
-	NativeLanguage string
-	TargetLanguage string
+	APIKey              string
+	APIBaseURL          string
+	Model               string
+	EmbeddingAPIKey     string
+	EmbeddingAPIBaseURL string
+	EmbeddingModel      string
+	NativeLanguage      string
+	TargetLanguage      string
 }
 
 type ChatResult struct {

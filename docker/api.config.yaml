@@ -21,6 +21,7 @@ milvus:
   host: milvus
   port: "19530"
   collection: user_memory_summaries
+  dimension: 1536
 
 user:
   username: user

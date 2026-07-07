@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"learnlang-api/agent"
+	"learnlang-api/agent/memory"
+	"learnlang-api/config"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"log"
@@ -21,7 +23,7 @@ import (
 type ChatService struct {
 	messageService             *MessageService
 	conversationSummaryService *ConversationSummaryService
-	userMemoryService          *UserMemoryService
+	memoryStore                *memory.Store
 	userSettingsService        *UserSettingsService
 	scheduledTaskService       *ScheduledTaskService
 	voiceFileService           *VoiceFileService
@@ -36,21 +38,29 @@ type WSHub interface {
 func NewChatService(
 	messageService *MessageService,
 	conversationSummaryService *ConversationSummaryService,
-	userMemoryService *UserMemoryService,
+	milvusCfg config.MilvusConfig,
 	userSettingsService *UserSettingsService,
 	scheduledTaskService *ScheduledTaskService,
 	voiceFileService *VoiceFileService,
 	wsHub WSHub,
 ) *ChatService {
+	memoryStore := memory.NewStore(memory.Config{
+		Address:    fmt.Sprintf("%s:%s", milvusCfg.Host, milvusCfg.Port),
+		Collection: milvusCfg.Collection,
+		Dimension:  milvusCfg.Dimension,
+	})
+
 	return &ChatService{
 		messageService:             messageService,
 		conversationSummaryService: conversationSummaryService,
-		userMemoryService:          userMemoryService,
+		memoryStore:                memoryStore,
 		userSettingsService:        userSettingsService,
 		scheduledTaskService:       scheduledTaskService,
 		voiceFileService:           voiceFileService,
-		chatAgent:                  agent.NewService(),
-		wsHub:                      wsHub,
+		chatAgent: agent.NewService(agent.Config{
+			MemoryStore: memoryStore,
+		}),
+		wsHub: wsHub,
 	}
 }
 
@@ -507,11 +517,14 @@ func (cs *ChatService) runAgentChat(ctx context.Context, userID int64, userMessa
 		CurrentTime: time.Now().In(loc).Format("2006-01-02 15:04:05"),
 		Timezone:    timezone,
 		Settings: agent.UserSettings{
-			APIKey:         apiKey,
-			APIBaseURL:     apiBaseURL,
-			Model:          settings.Model,
-			NativeLanguage: settings.NativeLanguage,
-			TargetLanguage: settings.TargetLanguage,
+			APIKey:              apiKey,
+			APIBaseURL:          apiBaseURL,
+			Model:               settings.Model,
+			EmbeddingAPIKey:     settings.EmbeddingAPIKey,
+			EmbeddingAPIBaseURL: settings.EmbeddingAPIBaseURL,
+			EmbeddingModel:      settings.EmbeddingModel,
+			NativeLanguage:      settings.NativeLanguage,
+			TargetLanguage:      settings.TargetLanguage,
 		},
 	})
 }
@@ -572,8 +585,12 @@ func (cs *ChatService) updateMemory(userID int64, result *agent.ChatResult, sett
 		},
 	})
 	if err == nil {
-		embedding := resp.Data[0].Embedding
-		embeddingBytes, _ := json.Marshal(embedding)
-		cs.userMemoryService.CreateUserMemorySummary(userID, result.Memory.SemanticContent, string(embeddingBytes), result.Memory.MemoryType, result.Memory.Importance, messageIDs)
+		embedding := make([]float32, 0, len(resp.Data[0].Embedding))
+		for _, v := range resp.Data[0].Embedding {
+			embedding = append(embedding, float32(v))
+		}
+		if _, err := cs.memoryStore.InsertSummary(ctx, userID, result.Memory.SemanticContent, result.Memory.MemoryType, result.Memory.Importance, messageIDs, embedding); err != nil {
+			log.Printf("failed to store user memory in milvus: %v", err)
+		}
 	}
 }
