@@ -5,19 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"learnlang-api/agent"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-	"github.com/openai/openai-go/v3/packages/param"
-	"github.com/openai/openai-go/v3/shared"
 )
 
 type ChatService struct {
@@ -27,44 +25,12 @@ type ChatService struct {
 	userSettingsService        *UserSettingsService
 	scheduledTaskService       *ScheduledTaskService
 	voiceFileService           *VoiceFileService
+	chatAgent                  *agent.Service
 	wsHub                      WSHub
 }
 
 type WSHub interface {
 	SendToUser(userID int64, message []byte)
-}
-
-type ChatEngineResult struct {
-	ReplySentences   []Sentence    `json:"reply_sentences"`
-	DetectedLanguage string        `json:"detected_language"`
-	Memory           *MemoryInfo   `json:"memory"`
-	Summary          *SummaryInfo  `json:"summary"`
-	Function         *FunctionInfo `json:"function"`
-	WaitForNextMsg   bool          `json:"wait_for_next_message"`
-}
-
-type Sentence struct {
-	Original    string `json:"original"`
-	Translation string `json:"translation"`
-}
-
-type MemoryInfo struct {
-	ShouldStore     bool    `json:"should_store"`
-	SemanticContent string  `json:"semantic_content"`
-	Importance      float64 `json:"importance"`
-	MemoryType      string  `json:"memory_type"`
-	Language        string  `json:"language"`
-}
-
-type FunctionInfo struct {
-	CallFunction bool                   `json:"call_function"`
-	FunctionName string                 `json:"function_name"`
-	FunctionArgs map[string]interface{} `json:"function_args"`
-}
-
-type SummaryInfo struct {
-	ShouldUpdate bool   `json:"should_update"`
-	Content      string `json:"content"`
 }
 
 func NewChatService(
@@ -83,6 +49,7 @@ func NewChatService(
 		userSettingsService:        userSettingsService,
 		scheduledTaskService:       scheduledTaskService,
 		voiceFileService:           voiceFileService,
+		chatAgent:                  agent.NewService(),
 		wsHub:                      wsHub,
 	}
 }
@@ -353,20 +320,7 @@ func (cs *ChatService) processAIResponse(userID int64, userMessage string, userM
 		return
 	}
 
-	client := cs.createClient(settings)
-
-	summaryObj, _ := cs.conversationSummaryService.GetConversationSummary(userID)
-	summary := ""
-	if summaryObj != nil {
-		summary = summaryObj.Summary
-	}
-
-	recentMessages, _ := cs.getRecentConversation(userID)
-
-	longTermMemories, _ := cs.getRelevantMemories(ctx, client, userID, userMessage, settings)
-
-	messages := cs.buildMessages(recentMessages, longTermMemories, userMessage, settings, summary, false)
-	result, tokensUsed, err := cs.callOpenAIWithStructuredOutput(ctx, client, messages, settings)
+	result, err := cs.runAgentChat(ctx, userID, userMessage, settings, false)
 	if err != nil {
 		return
 	}
@@ -395,7 +349,7 @@ func (cs *ChatService) processAIResponse(userID int64, userMessage string, userM
 	totalSentences := len(result.ReplySentences)
 	tokensPerSentence := 0
 	if totalSentences > 0 {
-		tokensPerSentence = tokensUsed / totalSentences
+		tokensPerSentence = result.TokensUsed / totalSentences
 	}
 
 	memoryMessageIDs := []int64{userMessageID}
@@ -459,19 +413,7 @@ func (cs *ChatService) processInstantAIResponse(userID int64, userMessageID int6
 		return
 	}
 
-	client := cs.createClient(settings)
-
-	summaryObj, _ := cs.conversationSummaryService.GetConversationSummary(userID)
-	summary := ""
-	if summaryObj != nil {
-		summary = summaryObj.Summary
-	}
-
-	longTermMemories, _ := cs.getRelevantMemories(ctx, client, userID, userMessage, settings)
-
-	messages := cs.buildMessages(recentMessages, longTermMemories, userMessage, settings, summary, true)
-
-	result, tokensUsed, err := cs.callOpenAIWithStructuredOutput(ctx, client, messages, settings)
+	result, err := cs.runAgentChat(ctx, userID, userMessage, settings, true)
 	if err != nil {
 		return
 	}
@@ -483,7 +425,7 @@ func (cs *ChatService) processInstantAIResponse(userID int64, userMessageID int6
 	totalSentences := len(result.ReplySentences)
 	tokensPerSentence := 0
 	if totalSentences > 0 {
-		tokensPerSentence = tokensUsed / totalSentences
+		tokensPerSentence = result.TokensUsed / totalSentences
 	}
 
 	memoryMessageIDs := []int64{userMessageID}
@@ -537,192 +479,44 @@ func (cs *ChatService) createClient(settings *models.UserSettings) openai.Client
 	return openai.NewClient(opts...)
 }
 
-func (cs *ChatService) getRelevantMemories(ctx context.Context, client openai.Client, userID int64, message string, settings *models.UserSettings) ([]models.Message, error) {
-	embeddingClient := client
-
-	embeddingAPIKey := settings.EmbeddingAPIKey
-	embeddingAPIBaseURL := settings.EmbeddingAPIBaseURL
-
-	if embeddingAPIKey != "" {
-		opts := []option.RequestOption{option.WithAPIKey(embeddingAPIKey)}
-		if embeddingAPIBaseURL != "" {
-			opts = append(opts, option.WithBaseURL(embeddingAPIBaseURL))
-		}
-		embeddingClient = openai.NewClient(opts...)
-	}
-
-	embeddingModel := settings.EmbeddingModel
-	if embeddingModel == "" {
-		embeddingModel = "text-embedding-3-small"
-	}
-
-	resp, err := embeddingClient.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(embeddingModel),
-		Input: openai.EmbeddingNewParamsInputUnion{
-			OfArrayOfStrings: []string{message},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	embedding := resp.Data[0].Embedding
-	embeddingFloat32 := make([]float32, len(embedding))
-	for i, v := range embedding {
-		embeddingFloat32[i] = float32(v)
-	}
-
-	embeddingJSON, err := json.Marshal(embeddingFloat32)
-	if err != nil {
-		return nil, err
-	}
-
-	const similarityThreshold = 0.9
-	results, err := cs.userMemoryService.SearchUserMemorySummaries(userID, string(embeddingJSON), 3, ptrFloat64(similarityThreshold))
-	if err != nil {
-		return nil, err
-	}
-
-	var allRelevantMessages []models.Message
-	seenMessageIDs := make(map[int64]bool)
-	for _, result := range results {
-		for _, msg := range result.Messages {
-			if !seenMessageIDs[msg.ID] {
-				allRelevantMessages = append(allRelevantMessages, msg)
-				seenMessageIDs[msg.ID] = true
-			}
-		}
-	}
-
-	sort.Slice(allRelevantMessages, func(i, j int) bool {
-		return allRelevantMessages[i].CreatedAt.Before(allRelevantMessages[j].CreatedAt)
-	})
-
-	return allRelevantMessages, nil
-}
-
-func ptrFloat64(v float64) *float64 {
-	return &v
-}
-
-func (cs *ChatService) expandMessagesWithInterval(messages []models.Message) []models.Message {
-	if len(messages) == 0 {
-		return []models.Message{}
-	}
-
-	const maxInterval = 60 * 60
-	var result []models.Message
-
-	included := make([]bool, len(messages))
-
-	for i := 0; i < len(messages); i++ {
-		included[i] = true
-
-		for j := i - 1; j >= 0; j-- {
-			interval := messages[j+1].CreatedAt.Unix() - messages[j].CreatedAt.Unix()
-			if interval <= maxInterval {
-				included[j] = true
-			} else {
-				break
-			}
-		}
-
-		for j := i + 1; j < len(messages); j++ {
-			interval := messages[j].CreatedAt.Unix() - messages[j-1].CreatedAt.Unix()
-			if interval <= maxInterval {
-				included[j] = true
-			} else {
-				break
-			}
-		}
-	}
-
-	for i, include := range included {
-		if include {
-			result = append(result, messages[i])
-		}
-	}
-
-	return result
-}
-
-func (cs *ChatService) buildMessages(recentMessages []models.Message, longTermMemories []models.Message, userMessage string, settings *models.UserSettings, summary string, instant bool) []openai.ChatCompletionMessageParamUnion {
+func (cs *ChatService) runAgentChat(ctx context.Context, userID int64, userMessage string, settings *models.UserSettings, instant bool) (*agent.ChatResult, error) {
 	timezone := settings.Timezone
 	if timezone == "" {
 		timezone = "UTC"
 	}
+
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.UTC
 	}
 
-	var recentMsgs []interface{}
-	for _, msg := range recentMessages {
-		timeStr := msg.CreatedAt.In(loc).Format("2006-01-02 15:04:05")
-		recentMsgs = append(recentMsgs, fmt.Sprintf("[%s] %s: %s", timeStr, msg.Role, msg.TextContent))
+	apiKey := settings.APIKey
+	if apiKey == "" {
+		apiKey = settings.STTAPIKey
 	}
 
-	var longTermMsgs []interface{}
-	for _, msg := range longTermMemories {
-		timeStr := msg.CreatedAt.In(loc).Format("2006-01-02 15:04:05")
-		longTermMsgs = append(longTermMsgs, fmt.Sprintf("[%s] %s: %s", timeStr, msg.Role, msg.TextContent))
+	apiBaseURL := settings.APIBaseURL
+	if apiBaseURL == "" {
+		apiBaseURL = settings.STTAPIBaseURL
 	}
 
-	currentTime := time.Now().In(loc).Format("2006-01-02 15:04:05")
-	systemContent := BuildFullSystemPrompt(settings.NativeLanguage, settings.TargetLanguage, summary, recentMsgs, longTermMsgs, currentTime, timezone)
-	systemNotWaitContent := BuildSystemInstantPrompt()
-
-	if instant {
-		systemContent += systemNotWaitContent
-	}
-
-	return []openai.ChatCompletionMessageParamUnion{
-		openai.SystemMessage(systemContent),
-		openai.UserMessage(userMessage),
-	}
-}
-
-func (cs *ChatService) callOpenAIWithStructuredOutput(ctx context.Context, client openai.Client, messages []openai.ChatCompletionMessageParamUnion, settings *models.UserSettings) (*ChatEngineResult, int, error) {
-	model := settings.Model
-	if model == "" {
-		model = "gpt-4o-mini"
-	}
-
-	schema := GenerateSchema[ChatEngineResult]()
-
-	jsonSchemaParam := shared.ResponseFormatJSONSchemaJSONSchemaParam{
-		Name:        "chat_engine_output",
-		Strict:      param.NewOpt(true),
-		Description: param.NewOpt("语言学习聊天引擎的结构化输出"),
-		Schema:      schema,
-	}
-
-	responseFormat := openai.ChatCompletionNewParamsResponseFormatUnion{
-		OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
-			JSONSchema: jsonSchemaParam,
-			Type:       "json_schema",
+	return cs.chatAgent.RunChat(ctx, agent.ChatRequest{
+		UserID:      userID,
+		UserInput:   userMessage,
+		Instant:     instant,
+		CurrentTime: time.Now().In(loc).Format("2006-01-02 15:04:05"),
+		Timezone:    timezone,
+		Settings: agent.UserSettings{
+			APIKey:         apiKey,
+			APIBaseURL:     apiBaseURL,
+			Model:          settings.Model,
+			NativeLanguage: settings.NativeLanguage,
+			TargetLanguage: settings.TargetLanguage,
 		},
-	}
-
-	resp, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-		Messages:        messages,
-		Model:           openai.ChatModel(model),
-		ResponseFormat:  responseFormat,
-		ReasoningEffort: "none",
 	})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var result ChatEngineResult
-	if err := json.Unmarshal([]byte(resp.Choices[0].Message.Content), &result); err != nil {
-		return nil, 0, err
-	}
-
-	return &result, int(resp.Usage.TotalTokens), nil
 }
 
-func (cs *ChatService) handleFunctionCall(ctx context.Context, userID int64, result *ChatEngineResult, settings *models.UserSettings) {
+func (cs *ChatService) handleFunctionCall(ctx context.Context, userID int64, result *agent.ChatResult, settings *models.UserSettings) {
 	switch result.Function.FunctionName {
 	case "schedule_message":
 		message, _ := result.Function.FunctionArgs["message"].(string)
@@ -749,7 +543,7 @@ func (cs *ChatService) updateSummary(userID int64, content string) {
 	cs.conversationSummaryService.UpdateConversationSummary(userID, content)
 }
 
-func (cs *ChatService) updateMemory(userID int64, result *ChatEngineResult, settings *models.UserSettings, messageIDs []int64) {
+func (cs *ChatService) updateMemory(userID int64, result *agent.ChatResult, settings *models.UserSettings, messageIDs []int64) {
 	ctx := context.Background()
 	client := cs.createClient(settings)
 
