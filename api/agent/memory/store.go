@@ -162,7 +162,7 @@ func (s *Store) ensureCollection(ctx context.Context, cli *milvusclient.Client) 
 			WithField(entity.NewField().WithName(fieldMessageIDs).WithDataType(entity.FieldTypeVarChar).WithMaxLength(4096)).
 			WithField(entity.NewField().WithName(fieldCreatedAt).WithDataType(entity.FieldTypeInt64)).
 			WithField(entity.NewField().WithName(fieldUpdatedAt).WithDataType(entity.FieldTypeInt64)).
-			WithField(entity.NewField().WithName(fieldEmbedding).WithDataType(entity.FieldTypeFloatVector).WithDim(s.cfg.Dimension))
+			WithField(entity.NewField().WithName(fieldEmbedding).WithDataType(entity.FieldTypeFloatVector).WithDim(int64(s.cfg.Dimension)))
 
 		err = cli.CreateCollection(ctx, milvusclient.NewCreateCollectionOption(s.cfg.Collection, schema).
 			WithIndexOptions(

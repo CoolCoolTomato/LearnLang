@@ -172,9 +172,11 @@ func (cs *ChatService) TextToSpeech(ctx context.Context, userID int64, text stri
 	}
 
 	res, err := client.Audio.Speech.New(ctx, openai.AudioSpeechNewParams{
-		Model:          openai.SpeechModel(model),
-		Input:          text,
-		Voice:          openai.AudioSpeechNewParamsVoice(voice),
+		Model: openai.SpeechModel(model),
+		Input: text,
+		Voice: openai.AudioSpeechNewParamsVoiceUnion{
+			OfAudioSpeechNewsVoiceString2: openai.String(voice),
+		},
 		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
 	})
 	if err != nil {
