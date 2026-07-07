@@ -22,6 +22,16 @@ func CreateVectorIndex() error {
 		return err
 	}
 
+	messageLinkSQL := `
+		CREATE INDEX IF NOT EXISTS idx_user_memory_messages_memory
+		ON user_memory_messages (user_memory_id, message_id)
+	`
+
+	if err := DB.Exec(messageLinkSQL).Error; err != nil {
+		log.Printf("Warning: Failed to create user memory message index: %v", err)
+		return err
+	}
+
 	log.Println("Vector index created successfully")
 	return nil
 }

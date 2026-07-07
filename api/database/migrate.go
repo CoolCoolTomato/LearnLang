@@ -12,6 +12,7 @@ func Migrate() error {
 		&models.Message{},
 		&models.ConversationSummary{},
 		&models.UserMemory{},
+		&models.UserMemoryMessage{},
 		&models.ScheduledTask{},
 		&models.VoiceFile{},
 	)

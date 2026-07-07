@@ -18,7 +18,6 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
-	"github.com/pgvector/pgvector-go"
 )
 
 type ChatService struct {
@@ -97,11 +96,6 @@ type ChatResponse struct {
 	MessageID int64  `json:"message_id"`
 	Message   string `json:"message"`
 	Status    string `json:"status"`
-}
-
-type memoryWithDistance struct {
-	models.UserMemory
-	Distance float64 `gorm:"column:distance"`
 }
 
 func (cs *ChatService) TranscribeAudio(ctx context.Context, userID int64, audioFile io.Reader) (string, *int64, error) {
@@ -404,6 +398,7 @@ func (cs *ChatService) processAIResponse(userID int64, userMessage string, userM
 		tokensPerSentence = tokensUsed / totalSentences
 	}
 
+	memoryMessageIDs := []int64{userMessageID}
 	var allReplies []string
 	for _, sentence := range result.ReplySentences {
 		voiceFileID, _ := cs.TextToSpeech(ctx, userID, sentence.Original, settings)
@@ -431,10 +426,11 @@ func (cs *ChatService) processAIResponse(userID int64, userMessage string, userM
 		cs.wsHub.SendToUser(userID, messageJSON)
 
 		allReplies = append(allReplies, sentence.Original)
+		memoryMessageIDs = append(memoryMessageIDs, aiMessage.ID)
 	}
 
 	if result.Memory != nil && result.Memory.ShouldStore {
-		go cs.updateMemory(userID, result, settings)
+		go cs.updateMemory(userID, result, settings, memoryMessageIDs)
 	}
 
 	if result.Summary != nil && result.Summary.ShouldUpdate {
@@ -490,6 +486,7 @@ func (cs *ChatService) processInstantAIResponse(userID int64, userMessageID int6
 		tokensPerSentence = tokensUsed / totalSentences
 	}
 
+	memoryMessageIDs := []int64{userMessageID}
 	var allReplies []string
 	for _, sentence := range result.ReplySentences {
 		voiceFileID, _ := cs.TextToSpeech(ctx, userID, sentence.Original, settings)
@@ -517,10 +514,11 @@ func (cs *ChatService) processInstantAIResponse(userID int64, userMessageID int6
 		cs.wsHub.SendToUser(userID, messageJSON)
 
 		allReplies = append(allReplies, sentence.Original)
+		memoryMessageIDs = append(memoryMessageIDs, aiMessage.ID)
 	}
 
 	if result.Memory != nil && result.Memory.ShouldStore {
-		go cs.updateMemory(userID, result, settings)
+		go cs.updateMemory(userID, result, settings, memoryMessageIDs)
 	}
 
 	if result.Summary != nil && result.Summary.ShouldUpdate {
@@ -574,49 +572,21 @@ func (cs *ChatService) getRelevantMemories(ctx context.Context, client openai.Cl
 		embeddingFloat32[i] = float32(v)
 	}
 
-	var memories []memoryWithDistance
-	err = database.DB.Raw(`
-		SELECT *, embedding <-> ? AS distance
-		FROM user_memories
-		WHERE user_id = ?
-		ORDER BY embedding <-> ?
-		LIMIT 3
-	`,
-		pgvector.NewVector(embeddingFloat32),
-		userID,
-		pgvector.NewVector(embeddingFloat32),
-	).Scan(&memories).Error
+	embeddingJSON, err := json.Marshal(embeddingFloat32)
+	if err != nil {
+		return nil, err
+	}
 
+	const similarityThreshold = 0.9
+	results, err := cs.userMemoryService.SearchUserMemorySummaries(userID, string(embeddingJSON), 3, ptrFloat64(similarityThreshold))
 	if err != nil {
 		return nil, err
 	}
 
 	var allRelevantMessages []models.Message
 	seenMessageIDs := make(map[int64]bool)
-
-	const similarityThreshold = 0.9
-	for _, memory := range memories {
-		if memory.Distance > similarityThreshold {
-			continue
-		}
-
-		var nearbyMessages []models.Message
-		err := database.DB.Where(
-			"user_id = ? AND created_at BETWEEN ? AND ?",
-			userID,
-			memory.CreatedAt.Add(-3*time.Hour),
-			memory.CreatedAt.Add(3*time.Hour),
-		).
-			Order("created_at ASC").
-			Find(&nearbyMessages).Error
-
-		if err != nil {
-			continue
-		}
-
-		expanded := cs.expandMessagesWithInterval(nearbyMessages)
-
-		for _, msg := range expanded {
+	for _, result := range results {
+		for _, msg := range result.Messages {
 			if !seenMessageIDs[msg.ID] {
 				allRelevantMessages = append(allRelevantMessages, msg)
 				seenMessageIDs[msg.ID] = true
@@ -629,6 +599,10 @@ func (cs *ChatService) getRelevantMemories(ctx context.Context, client openai.Cl
 	})
 
 	return allRelevantMessages, nil
+}
+
+func ptrFloat64(v float64) *float64 {
+	return &v
 }
 
 func (cs *ChatService) expandMessagesWithInterval(messages []models.Message) []models.Message {
@@ -775,7 +749,7 @@ func (cs *ChatService) updateSummary(userID int64, content string) {
 	cs.conversationSummaryService.UpdateConversationSummary(userID, content)
 }
 
-func (cs *ChatService) updateMemory(userID int64, result *ChatEngineResult, settings *models.UserSettings) {
+func (cs *ChatService) updateMemory(userID int64, result *ChatEngineResult, settings *models.UserSettings, messageIDs []int64) {
 	ctx := context.Background()
 	client := cs.createClient(settings)
 
@@ -806,6 +780,6 @@ func (cs *ChatService) updateMemory(userID int64, result *ChatEngineResult, sett
 	if err == nil {
 		embedding := resp.Data[0].Embedding
 		embeddingBytes, _ := json.Marshal(embedding)
-		cs.userMemoryService.CreateUserMemory(userID, result.Memory.SemanticContent, string(embeddingBytes), result.Memory.MemoryType, result.Memory.Importance)
+		cs.userMemoryService.CreateUserMemorySummary(userID, result.Memory.SemanticContent, string(embeddingBytes), result.Memory.MemoryType, result.Memory.Importance, messageIDs)
 	}
 }
