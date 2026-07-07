@@ -17,7 +17,6 @@ type Services struct {
 	ModelProviderService       *services.ModelProviderService
 	MessageService             *services.MessageService
 	ConversationSummaryService *services.ConversationSummaryService
-	UserMemoryService          *services.UserMemoryService
 	UserSettingsService        *services.UserSettingsService
 	ScheduledTaskService       *services.ScheduledTaskService
 	VoiceFileService           *services.VoiceFileService
@@ -36,12 +35,11 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	modelProviderService := services.NewModelProviderService()
 	messageService := services.NewMessageService()
 	conversationSummaryService := services.NewConversationSummaryService()
-	userMemoryService := services.NewUserMemoryService()
 	userSettingsService := services.NewUserSettingsService()
 	scheduledTaskService := services.NewScheduledTaskService()
 	voiceFileService := services.NewVoiceFileService()
 
-	chatService := services.NewChatService(messageService, conversationSummaryService, userMemoryService, userSettingsService, scheduledTaskService, voiceFileService, hub)
+	chatService := services.NewChatService(messageService, conversationSummaryService, cfg.Milvus, userSettingsService, scheduledTaskService, voiceFileService, hub)
 
 	scheduledTaskService.RegisterHandler("send_message", services.NewSendMessageHandler(messageService, chatService, userSettingsService, hub))
 	scheduledTaskService.RegisterHandler("wait_message", services.NewWaitMessageHandler(chatService))
@@ -54,7 +52,6 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 		ModelProviderService:       modelProviderService,
 		MessageService:             messageService,
 		ConversationSummaryService: conversationSummaryService,
-		UserMemoryService:          userMemoryService,
 		UserSettingsService:        userSettingsService,
 		ScheduledTaskService:       scheduledTaskService,
 		VoiceFileService:           voiceFileService,
