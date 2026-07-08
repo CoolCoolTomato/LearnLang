@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"learnlang-api/services"
+	"learnlang-api/agent"
 	"net/http"
 	"strconv"
 
@@ -9,10 +9,10 @@ import (
 )
 
 type ChatController struct {
-	chatService *services.ChatService
+	chatService *agent.ChatService
 }
 
-func NewChatController(chatService *services.ChatService) *ChatController {
+func NewChatController(chatService *agent.ChatService) *ChatController {
 	return &ChatController{chatService: chatService}
 }
 

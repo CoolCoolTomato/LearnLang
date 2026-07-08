@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"learnlang-api/database"
 )
 
 type SendMessageArgs struct {
@@ -17,44 +16,29 @@ type WaitMessageArgs struct {
 	MessageID int64 `json:"message_id"`
 }
 
-func NewSendMessageHandler(messageService *MessageService, chatService *ChatService, userSettingsService *UserSettingsService, wsHub WSHub) TaskHandler {
+type InstantMessageResponder interface {
+	ProcessInstantAIResponse(userID int64, messageID int64)
+}
+
+func NewSendMessageHandler(chatRuntimeService *ChatRuntimeService) TaskHandler {
 	return func(args string) error {
 		var msgArgs SendMessageArgs
 		if err := json.Unmarshal([]byte(args), &msgArgs); err != nil {
 			return err
 		}
 
-		settings, err := userSettingsService.GetUserSettings(msgArgs.UserID)
-		if err != nil {
-			return err
-		}
-
-		voiceFileID, _ := chatService.TextToSpeech(context.Background(), msgArgs.UserID, msgArgs.Message, settings)
-
-		message, err := messageService.CreateMessage(msgArgs.UserID, "assistant", msgArgs.Message, msgArgs.Translation, voiceFileID, "text", 0)
-		if err != nil {
-			return err
-		}
-
-		database.DB.Preload("VoiceFile").First(message, message.ID)
-
-		if message.VoiceFile != nil {
-			message.VoiceFile.VoiceURL = ""
-		}
-
-		messageJSON, _ := json.Marshal(message)
-		wsHub.SendToUser(msgArgs.UserID, messageJSON)
-		return nil
+		_, err := chatRuntimeService.SaveAssistantReply(context.Background(), msgArgs.UserID, msgArgs.Message, msgArgs.Translation)
+		return err
 	}
 }
 
-func NewWaitMessageHandler(chatService *ChatService) TaskHandler {
+func NewWaitMessageHandler(responder InstantMessageResponder) TaskHandler {
 	return func(args string) error {
 		var msgArgs WaitMessageArgs
 		if err := json.Unmarshal([]byte(args), &msgArgs); err != nil {
 			return err
 		}
-		chatService.processInstantAIResponse(msgArgs.UserID, msgArgs.MessageID)
+		responder.ProcessInstantAIResponse(msgArgs.UserID, msgArgs.MessageID)
 		return nil
 	}
 }
