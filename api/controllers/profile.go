@@ -40,6 +40,7 @@ type UpdateMySettingsRequest struct {
 	APIBaseURL          string `json:"api_base_url"`
 	APIKey              string `json:"api_key"`
 	Model               string `json:"model"`
+	LLMType             string `json:"llm_type"`
 	EmbeddingAPIBaseURL string `json:"embedding_api_base_url"`
 	EmbeddingAPIKey     string `json:"embedding_api_key"`
 	EmbeddingModel      string `json:"embedding_model"`
@@ -237,6 +238,9 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 	}
 	if req.Model != "" {
 		updates["model"] = req.Model
+	}
+	if req.LLMType != "" {
+		updates["llm_type"] = req.LLMType
 	}
 	if req.EmbeddingAPIBaseURL != "" {
 		updates["embedding_api_base_url"] = req.EmbeddingAPIBaseURL

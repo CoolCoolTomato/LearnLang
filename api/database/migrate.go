@@ -10,7 +10,7 @@ func Migrate() error {
 		&models.User{},
 		&models.UserSettings{},
 		&models.Message{},
-		&models.ConversationSummary{},
+		&models.UserProfileSummary{},
 		&models.ScheduledTask{},
 		&models.VoiceFile{},
 	)

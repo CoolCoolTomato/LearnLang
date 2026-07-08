@@ -58,7 +58,7 @@ func (us *UserService) CreateUser(email, phone *string, username, password, role
 		return nil, err
 	}
 
-	summary := models.ConversationSummary{
+	summary := models.UserProfileSummary{
 		UserID:  user.ID,
 		Summary: "",
 	}

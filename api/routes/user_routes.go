@@ -9,13 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager, services *Services) {
-	authController := controllers.NewAuthController(services.AuthService)
-	profileController := controllers.NewProfileController(services.UserService, services.UserSettingsService)
-	chatController := controllers.NewChatController(services.ChatService)
-	wsController := controllers.NewWebSocketController(services.Hub)
-	voiceFileController := controllers.NewVoiceFileController(services.VoiceFileService)
-	modelProviderController := controllers.NewModelProviderController(services.ModelProviderService)
+func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager, svc *Services) {
+	authController := controllers.NewAuthController(svc.AuthService)
+	profileController := controllers.NewProfileController(svc.UserService, svc.UserSettingsService)
+	chatController := controllers.NewChatController(svc.ChatService)
+	wsController := controllers.NewWebSocketController(svc.Hub)
+	voiceFileController := controllers.NewVoiceFileController(svc.VoiceFileService)
+	modelProviderController := controllers.NewModelProviderController(svc.ModelProviderService)
 
 	userGroup := api.Group("/user")
 

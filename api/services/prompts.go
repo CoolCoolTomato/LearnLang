@@ -60,11 +60,6 @@ The fixed fields are as follows:
     "should_update": false,
     "content": ""
   },
-  "function": {
-    "call_function": false,
-    "function_name": "",
-    "function_args": {}
-  },
   "wait_for_next_message": false
 }
 
@@ -147,38 +142,6 @@ Do not update for:
 Requirements:
 - content must be a summarized, structured result, not a copy of original text
 - do not infer or fabricate user profile
-
-#### function
-Controls whether to call external functions.
-
-Fields:
-- call_function: whether to call a function
-- function_name: function name
-- function_args: function arguments
-
-You must decide whether to call the following function:
-
-##### schedule_message function
-
-Used to send a message to the user at a specified time.
-
-**Time Handling Rules:**
-1. All time expressions mentioned in the conversation must be interpreted using the user's local timezone, which is inferred from the chat context/history.
-2. The user's timezone is the source of truth for understanding any relative or absolute time (e.g., "tomorrow at 9am", "in 2 hours").
-3. Before calling the function, you must convert the user's local time into UTC.
-4. scheduled_at must be a UTC timestamp in RFC3339 format, ending with "Z".
-5. scheduled_at must never contain the user's local timezone offset.
-6. Do not output local time in scheduled_at under any circumstance.
-7. Example:
-   - User says: "Remind me tomorrow at 9:00 AM"
-   - User timezone: Asia/Singapore (UTC+08:00)
-   - Correct scheduled_at: "2026-03-25T01:00:00Z"
-   - Incorrect scheduled_at: "2026-03-25T09:00:00+08:00"
-
-Call format:
-- call_function: true
-- function_name: "schedule_message"
-- function_args: {"message": "target language message", "translation": "native language translation", "scheduled_at": "ISO8601 UTC time"}
 
 #### wait_for_next_message
 
@@ -332,7 +295,6 @@ func BuildFullSystemPrompt(
 			b.WriteString(timezone)
 		}
 
-		b.WriteString("\nFinal rule: function.function_args.scheduled_at must always be UTC RFC3339 ending with Z.")
 	}
 
 	if strings.TrimSpace(summary) != "" {
