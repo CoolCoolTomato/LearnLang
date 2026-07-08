@@ -52,6 +52,10 @@ func (uss *UserSettingsService) UpdateUserSettings(userID int64, updates map[str
 			if v, ok := value.(string); ok && v != "" {
 				settings.Model = v
 			}
+		case "llm_type":
+			if v, ok := value.(string); ok && v != "" {
+				settings.LLMType = v
+			}
 		case "embedding_api_base_url":
 			if v, ok := value.(string); ok && v != "" {
 				settings.EmbeddingAPIBaseURL = v

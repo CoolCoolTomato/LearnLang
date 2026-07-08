@@ -10,6 +10,7 @@ type UserSettings struct {
 	APIBaseURL          string    `gorm:"size:255" json:"api_base_url"`
 	APIKey              string    `gorm:"size:255" json:"api_key"`
 	Model               string    `gorm:"size:128" json:"model"`
+	LLMType             string    `gorm:"size:32;default:'openai'" json:"llm_type"`
 	EmbeddingAPIBaseURL string    `gorm:"size:255" json:"embedding_api_base_url"`
 	EmbeddingAPIKey     string    `gorm:"size:255" json:"embedding_api_key"`
 	EmbeddingModel      string    `gorm:"size:128" json:"embedding_model"`
