@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
-import { Link, Navigate, useLocation } from "react-router-dom"
+import { ChevronLeft, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { Navigate, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,6 +20,7 @@ import {
 } from "@/api/developer"
 import { getErrorMessage } from "@/lib/error"
 import { developerResources, type DeveloperResource } from "@/types/developer"
+import { DeveloperLayout } from "./developer-layout"
 
 const pageSize = 20
 
@@ -143,26 +144,16 @@ export default function DeveloperResourcePage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 md:px-8">
-      <div className="mx-auto w-full max-w-[1440px]">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5">
-          <div>
-            <Link to="/developer" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Developer Data
-            </Link>
-            <h1 className="mt-2 text-2xl font-semibold">{resourceInfo.label}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{total} total records</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={loadRecords} disabled={loading} title="Refresh">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="destructive" onClick={deleteSelected} disabled={selectedIds.length === 0}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.length})
-            </Button>
-            <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New record</Button>
-          </div>
-        </div>
+    <>
+    <DeveloperLayout
+      title={resourceInfo.label}
+      description={`${total} total records`}
+      actions={<>
+        <Button variant="outline" size="icon" onClick={loadRecords} disabled={loading} title="Refresh"><RefreshCw className="h-4 w-4" /></Button>
+        <Button variant="destructive" onClick={deleteSelected} disabled={selectedIds.length === 0}><Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.length})</Button>
+        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New record</Button>
+      </>}
+    >
 
         <div className="mt-5 overflow-x-auto border">
           <table className="w-full text-left text-sm">
@@ -204,21 +195,21 @@ export default function DeveloperResourcePage() {
             <Button variant="outline" size="icon" disabled={page >= totalPages || loading} onClick={() => setPage((current) => current + 1)} title="Next page"><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
-      </div>
+    </DeveloperLayout>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingId === null ? "Create record" : `Edit record #${editingId}`}</DialogTitle>
             <DialogDescription>Provide writable fields as a JSON object. Server-managed IDs and timestamps are ignored.</DialogDescription>
           </DialogHeader>
-          <Textarea value={editorValue} onChange={(event) => setEditorValue(event.target.value)} className="min-h-80 font-mono text-xs" spellCheck={false} />
+          <Textarea value={editorValue} onChange={(event) => setEditorValue(event.target.value)} className="h-64 max-h-[40vh] min-h-0 resize-y font-mono text-xs" spellCheck={false} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={saveRecord} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </>
   )
 }

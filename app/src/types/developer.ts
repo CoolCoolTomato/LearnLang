@@ -16,3 +16,14 @@ export interface DeveloperPage<T = Record<string, unknown>> {
   page: number
   size: number
 }
+
+export interface DeveloperDashboard {
+  messages: number
+  completed_tasks: number
+  waiting_tasks: number
+  users: number
+  user_profile_summaries: number
+  conversation_archives: number
+  voice_files: number
+  voice_file_bytes: number
+}

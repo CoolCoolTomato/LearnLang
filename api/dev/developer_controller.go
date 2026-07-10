@@ -18,6 +18,15 @@ func NewController(service *services.DeveloperDataService) *Controller {
 	return &Controller{service: service}
 }
 
+func (cc *Controller) Dashboard(c *gin.Context) {
+	result, err := cc.service.Dashboard()
+	if err != nil {
+		cc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (cc *Controller) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))

@@ -15,6 +15,7 @@ func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.T
 	group.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
 	group.Use(middleware.DeveloperMiddleware(cfg.User.Username))
 	{
+		group.GET("/dashboard", controller.Dashboard)
 		group.GET("/:resource", controller.List)
 		group.POST("/:resource", controller.Create)
 		group.DELETE("/:resource", controller.DeleteMany)

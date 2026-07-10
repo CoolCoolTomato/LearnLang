@@ -29,8 +29,48 @@ type DeveloperPage struct {
 	Size  int   `json:"size"`
 }
 
+type DeveloperDashboard struct {
+	Messages             int64 `json:"messages"`
+	CompletedTasks       int64 `json:"completed_tasks"`
+	WaitingTasks         int64 `json:"waiting_tasks"`
+	Users                int64 `json:"users"`
+	UserProfileSummaries int64 `json:"user_profile_summaries"`
+	ConversationArchives int64 `json:"conversation_archives"`
+	VoiceFiles           int64 `json:"voice_files"`
+	VoiceFileBytes       int64 `json:"voice_file_bytes"`
+}
+
 func NewDeveloperDataService() *DeveloperDataService {
 	return &DeveloperDataService{}
+}
+
+func (s *DeveloperDataService) Dashboard() (*DeveloperDashboard, error) {
+	dashboard := &DeveloperDashboard{}
+	counts := []struct {
+		model  any
+		target *int64
+	}{
+		{&models.Message{}, &dashboard.Messages},
+		{&models.User{}, &dashboard.Users},
+		{&models.UserProfileSummary{}, &dashboard.UserProfileSummaries},
+		{&models.ConversationArchive{}, &dashboard.ConversationArchives},
+		{&models.VoiceFile{}, &dashboard.VoiceFiles},
+	}
+	for _, count := range counts {
+		if err := database.DB.Model(count.model).Count(count.target).Error; err != nil {
+			return nil, err
+		}
+	}
+	if err := database.DB.Model(&models.ScheduledTask{}).Where("status = ?", "completed").Count(&dashboard.CompletedTasks).Error; err != nil {
+		return nil, err
+	}
+	if err := database.DB.Model(&models.ScheduledTask{}).Where("status = ?", "pending").Count(&dashboard.WaitingTasks).Error; err != nil {
+		return nil, err
+	}
+	if err := database.DB.Model(&models.VoiceFile{}).Select("COALESCE(SUM(file_size), 0)").Scan(&dashboard.VoiceFileBytes).Error; err != nil {
+		return nil, err
+	}
+	return dashboard, nil
 }
 
 func (s *DeveloperDataService) List(resource string, page, size int) (*DeveloperPage, error) {

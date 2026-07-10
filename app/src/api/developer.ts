@@ -1,7 +1,11 @@
 import { http } from "./request"
-import type { DeveloperPage, DeveloperResource } from "@/types/developer"
+import type { DeveloperDashboard, DeveloperPage, DeveloperResource } from "@/types/developer"
 
 const basePath = "/dev"
+
+export function getDeveloperDashboard() {
+  return http.get<DeveloperDashboard>(`${basePath}/dashboard`)
+}
 
 export function listDeveloperRecords(resource: DeveloperResource, page: number, size: number) {
   return http.get<DeveloperPage>(`${basePath}/${resource}`, { params: { page, size } })
