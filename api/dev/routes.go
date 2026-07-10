@@ -13,6 +13,7 @@ func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.T
 	controller := NewController(services.NewDeveloperDataService())
 	group := api.Group("/dev")
 	group.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
+	group.Use(middleware.DeveloperMiddleware(cfg.User.Username))
 	{
 		group.GET("/:resource", controller.List)
 		group.POST("/:resource", controller.Create)
