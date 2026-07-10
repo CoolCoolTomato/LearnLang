@@ -11,7 +11,7 @@ import (
 
 func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager) {
 	controller := NewController(services.NewDeveloperDataService())
-	group := api.Group("/dev")
+	group := api.Group("/user/dev")
 	group.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
 	group.Use(middleware.DeveloperMiddleware(cfg.User.Username))
 	{
