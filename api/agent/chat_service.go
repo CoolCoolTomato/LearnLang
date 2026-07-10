@@ -2,8 +2,8 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"learnlang-api/agent/archive"
 	"learnlang-api/agent/memory"
 	"learnlang-api/config"
 	"learnlang-api/models"
@@ -11,24 +11,16 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 )
 
 type ChatService struct {
 	runtime     *services.ChatRuntimeService
 	memoryStore *memory.Store
 	agent       *Service
+	archiver    *archive.Service
 }
 
-func NewChatService(runtime *services.ChatRuntimeService, milvusCfg config.MilvusConfig) *ChatService {
-	memoryStore := memory.NewStore(memory.Config{
-		Address:    milvusAddress(milvusCfg),
-		Collection: milvusCfg.Collection,
-		Dimension:  milvusCfg.Dimension,
-	})
-
+func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service) *ChatService {
 	return &ChatService{
 		runtime:     runtime,
 		memoryStore: memoryStore,
@@ -36,7 +28,16 @@ func NewChatService(runtime *services.ChatRuntimeService, milvusCfg config.Milvu
 			MemoryStore: memoryStore,
 			Runtime:     runtime,
 		}),
+		archiver: archiver,
 	}
+}
+
+func NewMemoryStore(milvusCfg config.MilvusConfig) *memory.Store {
+	return memory.NewStore(memory.Config{
+		Address:    milvusAddress(milvusCfg),
+		Collection: milvusCfg.Collection,
+		Dimension:  milvusCfg.Dimension,
+	})
 }
 
 func (s *ChatService) TranscribeAudio(ctx context.Context, userID int64, audioFile io.Reader) (string, *int64, error) {
@@ -81,7 +82,7 @@ func (s *ChatService) ProcessInstantAIResponse(userID int64, messageID int64) {
 
 func (s *ChatService) processAIResponse(userID int64, userMessage *models.Message) {
 	ctx := context.Background()
-	result, settings, err := s.runAgentChat(ctx, userID, userMessage.TextContent, false)
+	result, err := s.runAgentChat(ctx, userID, userMessage.TextContent, false)
 	if err != nil {
 		return
 	}
@@ -90,7 +91,7 @@ func (s *ChatService) processAIResponse(userID int64, userMessage *models.Messag
 		_ = s.runtime.ScheduleWaitMessage(ctx, userID, userMessage.ID, time.Now().Add(30*time.Second))
 	}
 
-	s.updateMemory(ctx, userID, result, settings, append([]int64{userMessage.ID}, result.MessageIDs...))
+	s.archiveConversation(userID)
 }
 
 func (s *ChatService) processInstantAIResponse(userID int64, messageID int64) {
@@ -121,18 +122,28 @@ func (s *ChatService) processInstantAIResponse(userID int64, messageID int64) {
 		return
 	}
 
-	result, settings, err := s.runAgentChat(ctx, userID, target.TextContent, true)
+	_, err = s.runAgentChat(ctx, userID, target.TextContent, true)
 	if err != nil {
 		return
 	}
 
-	s.updateMemory(ctx, userID, result, settings, append([]int64{target.ID}, result.MessageIDs...))
+	s.archiveConversation(userID)
 }
 
-func (s *ChatService) runAgentChat(ctx context.Context, userID int64, userInput string, instant bool) (*ChatResult, *models.UserSettings, error) {
+func (s *ChatService) archiveConversation(userID int64) {
+	if s.archiver == nil {
+		return
+	}
+
+	go func() {
+		_ = s.archiver.Run(context.Background(), userID)
+	}()
+}
+
+func (s *ChatService) runAgentChat(ctx context.Context, userID int64, userInput string, instant bool) (*ChatResult, error) {
 	settings, err := s.runtime.UserSettings(userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	timezone := strings.TrimSpace(settings.Timezone)
@@ -155,33 +166,10 @@ func (s *ChatService) runAgentChat(ctx context.Context, userID int64, userInput 
 		Timezone:    timezone,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return result, settings, nil
-}
-
-func (s *ChatService) updateMemory(ctx context.Context, userID int64, result *ChatResult, settings *models.UserSettings, messageIDs []int64) {
-	if result == nil || result.Memory == nil || !result.Memory.ShouldStore {
-		return
-	}
-
-	content := strings.TrimSpace(result.Memory.SemanticContent)
-	if content == "" || s.memoryStore == nil {
-		return
-	}
-
-	embedding, err := createMemoryEmbedding(ctx, settings, content)
-	if err != nil {
-		return
-	}
-
-	memoryType := strings.TrimSpace(result.Memory.MemoryType)
-	if memoryType == "" {
-		memoryType = "conversation"
-	}
-
-	_, _ = s.memoryStore.InsertSummary(ctx, userID, content, memoryType, result.Memory.Importance, messageIDs, embedding)
+	return result, nil
 }
 
 func toAgentSettings(settings *models.UserSettings) UserSettings {
@@ -206,50 +194,6 @@ func toAgentSettings(settings *models.UserSettings) UserSettings {
 		NativeLanguage:      settings.NativeLanguage,
 		TargetLanguage:      settings.TargetLanguage,
 	}
-}
-
-func createMemoryEmbedding(ctx context.Context, settings *models.UserSettings, text string) ([]float32, error) {
-	apiKey := strings.TrimSpace(settings.EmbeddingAPIKey)
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(settings.APIKey)
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("embedding api key is required")
-	}
-
-	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
-	apiBaseURL := strings.TrimSpace(settings.EmbeddingAPIBaseURL)
-	if apiBaseURL == "" {
-		apiBaseURL = strings.TrimSpace(settings.APIBaseURL)
-	}
-	if apiBaseURL != "" {
-		opts = append(opts, option.WithBaseURL(apiBaseURL))
-	}
-
-	model := strings.TrimSpace(settings.EmbeddingModel)
-	if model == "" {
-		model = "text-embedding-3-small"
-	}
-
-	client := openai.NewClient(opts...)
-	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(model),
-		Input: openai.EmbeddingNewParamsInputUnion{
-			OfArrayOfStrings: []string{text},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("embedding response is empty")
-	}
-
-	vector := make([]float32, 0, len(resp.Data[0].Embedding))
-	for _, value := range resp.Data[0].Embedding {
-		vector = append(vector, float32(value))
-	}
-	return vector, nil
 }
 
 func milvusAddress(cfg config.MilvusConfig) string {

@@ -15,22 +15,20 @@ func (t CompleteChatTurnTool) Name() string {
 }
 
 func (t CompleteChatTurnTool) Description() string {
-	return `Finish the current chat turn after sending all reply sentences, or finish without replies when waiting for more user input. Call exactly once. Input must be JSON: {"detected_language":"language code","wait_for_next_message":false,"memory":{"should_store":false,"semantic_content":"","importance":0,"memory_type":"conversation","language":"language code"},"summary":{"should_update":false,"content":""}}.`
+	return `Finish the current chat turn after sending all reply sentences, or finish without replies when waiting for more user input. Call exactly once. Input must be JSON: {"detected_language":"language code","wait_for_next_message":false}.`
 }
 
 func (t CompleteChatTurnTool) Call(ctx context.Context, input string) (string, error) {
 	var args struct {
-		DetectedLanguage string       `json:"detected_language"`
-		Memory           *MemoryInfo  `json:"memory"`
-		Summary          *SummaryInfo `json:"summary"`
-		WaitForNextMsg   bool         `json:"wait_for_next_message"`
+		DetectedLanguage string `json:"detected_language"`
+		WaitForNextMsg   bool   `json:"wait_for_next_message"`
 	}
 	if err := json.Unmarshal([]byte(input), &args); err != nil {
 		return "", fmt.Errorf("parse complete_chat_turn input: %w", err)
 	}
 
 	if t.State != nil {
-		t.State.Complete(args.DetectedLanguage, args.WaitForNextMsg, args.Memory, args.Summary)
+		t.State.Complete(args.DetectedLanguage, args.WaitForNextMsg)
 	}
 
 	return marshalToolResult(map[string]any{

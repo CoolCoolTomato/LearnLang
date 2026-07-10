@@ -57,7 +57,7 @@ func NewStore(cfg Config) *Store {
 	return &Store{cfg: cfg}
 }
 
-func (s *Store) InsertSummary(ctx context.Context, userID int64, summary, memoryType string, importanceScore float64, messageIDs []int64, embedding []float32) (string, error) {
+func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string, messageIDs []int64, embedding []float32) (string, error) {
 	if err := s.validateEmbedding(embedding); err != nil {
 		return "", err
 	}
@@ -84,8 +84,8 @@ func (s *Store) InsertSummary(ctx context.Context, userID int64, summary, memory
 			column.NewColumnVarChar(fieldID, []string{id}),
 			column.NewColumnInt64(fieldUserID, []int64{userID}),
 			column.NewColumnVarChar(fieldSummary, []string{summary}),
-			column.NewColumnVarChar(fieldMemoryType, []string{memoryType}),
-			column.NewColumnDouble(fieldImportanceScore, []float64{importanceScore}),
+			column.NewColumnVarChar(fieldMemoryType, []string{"conversation_archive"}),
+			column.NewColumnDouble(fieldImportanceScore, []float64{1}),
 			column.NewColumnVarChar(fieldMessageIDs, []string{string(messageIDsJSON)}),
 			column.NewColumnInt64(fieldCreatedAt, []int64{now.Unix()}),
 			column.NewColumnInt64(fieldUpdatedAt, []int64{now.Unix()}),

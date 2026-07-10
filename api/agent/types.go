@@ -25,5 +25,3 @@ type UserSettings struct {
 
 type ChatResult = agenttools.ChatResult
 type Sentence = agenttools.Sentence
-type MemoryInfo = agenttools.MemoryInfo
-type SummaryInfo = agenttools.SummaryInfo

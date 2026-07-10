@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"learnlang-api/agent"
+	"learnlang-api/agent/archive"
 	"learnlang-api/config"
 	"learnlang-api/database"
 	"learnlang-api/services"
@@ -13,16 +14,17 @@ import (
 )
 
 type Services struct {
-	AuthService               *services.AuthService
-	UserService               *services.UserService
-	ModelProviderService      *services.ModelProviderService
-	MessageService            *services.MessageService
-	UserProfileSummaryService *services.UserProfileSummaryService
-	UserSettingsService       *services.UserSettingsService
-	ScheduledTaskService      *services.ScheduledTaskService
-	VoiceFileService          *services.VoiceFileService
-	ChatService               *agent.ChatService
-	Hub                       *websocket.Hub
+	AuthService                *services.AuthService
+	UserService                *services.UserService
+	ModelProviderService       *services.ModelProviderService
+	MessageService             *services.MessageService
+	UserProfileSummaryService  *services.UserProfileSummaryService
+	UserSettingsService        *services.UserSettingsService
+	ConversationArchiveService *services.ConversationArchiveService
+	ScheduledTaskService       *services.ScheduledTaskService
+	VoiceFileService           *services.VoiceFileService
+	ChatService                *agent.ChatService
+	Hub                        *websocket.Hub
 }
 
 func SetupRoutes(r *gin.Engine, cfg *config.Config) {
@@ -37,11 +39,14 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	messageService := services.NewMessageService()
 	userProfileSummaryService := services.NewUserProfileSummaryService()
 	userSettingsService := services.NewUserSettingsService()
+	conversationArchiveService := services.NewConversationArchiveService()
 	scheduledTaskService := services.NewScheduledTaskService()
 	voiceFileService := services.NewVoiceFileService()
 
 	chatRuntimeService := services.NewChatRuntimeService(messageService, userSettingsService, scheduledTaskService, voiceFileService, hub)
-	chatService := agent.NewChatService(chatRuntimeService, cfg.Milvus)
+	memoryStore := agent.NewMemoryStore(cfg.Milvus)
+	conversationArchiver := archive.NewService(conversationArchiveService, userSettingsService, memoryStore)
+	chatService := agent.NewChatService(chatRuntimeService, memoryStore, conversationArchiver)
 
 	scheduledTaskService.RegisterHandler("send_message", services.NewSendMessageHandler(chatRuntimeService))
 	scheduledTaskService.RegisterHandler("wait_message", services.NewWaitMessageHandler(chatService))
@@ -49,16 +54,17 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	go scheduledTaskService.StartScheduler(context.Background())
 
 	svc := &Services{
-		AuthService:               authService,
-		UserService:               userService,
-		ModelProviderService:      modelProviderService,
-		MessageService:            messageService,
-		UserProfileSummaryService: userProfileSummaryService,
-		UserSettingsService:       userSettingsService,
-		ScheduledTaskService:      scheduledTaskService,
-		VoiceFileService:          voiceFileService,
-		ChatService:               chatService,
-		Hub:                       hub,
+		AuthService:                authService,
+		UserService:                userService,
+		ModelProviderService:       modelProviderService,
+		MessageService:             messageService,
+		UserProfileSummaryService:  userProfileSummaryService,
+		UserSettingsService:        userSettingsService,
+		ConversationArchiveService: conversationArchiveService,
+		ScheduledTaskService:       scheduledTaskService,
+		VoiceFileService:           voiceFileService,
+		ChatService:                chatService,
+		Hub:                        hub,
 	}
 
 	api := r.Group("/api")

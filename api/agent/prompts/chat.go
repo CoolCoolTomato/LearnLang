@@ -61,17 +61,6 @@ complete_chat_turn input must be a JSON object only. No markdown, no comments, n
 
 {
   "detected_language": "language code",
-  "memory": {
-    "should_store": false,
-    "semantic_content": "",
-    "importance": 0,
-    "memory_type": "conversation",
-    "language": "language code"
-  },
-  "summary": {
-    "should_update": false,
-    "content": ""
-  },
   "wait_for_next_message": false
 }
 
@@ -81,18 +70,12 @@ complete_chat_turn input must be a JSON object only. No markdown, no comments, n
 - Each send_chat_reply call must have a target-language original and a native-language translation.
 - Split replies into short natural sentences.
 
-## Memory Write Decision
-
-Set memory.should_store true only for reusable personal facts, preferences, goals, plans, stable events, or meaningful experiences.
-semantic_content in complete_chat_turn must be summarized, not a direct quote.
-memory_type options: conversation, preference, goal, identity, plan, experience.
-
 ## Summary Update Decision
 
 When stable profile information changes, call update_user_profile_summary with the full updated profile summary.
 Stable profile information includes identity, occupation, education, location, long-term interests, goals, family role, or durable preferences.
 Do not update the profile for transient conversation details.
-Keep summary.should_update false in complete_chat_turn; profile updates must go through update_user_profile_summary.
+Profile updates must go through update_user_profile_summary, not complete_chat_turn.
 
 ## Scheduling
 
@@ -104,7 +87,7 @@ After scheduling, call complete_chat_turn exactly once. Do not encode scheduled 
 
 ## Fragment Handling
 
-The user may send incomplete fragments. If the latest input clearly requires a next message to understand, call complete_chat_turn with wait_for_next_message=true, no reply, no memory write, no summary update, and no scheduled message.
+The user may send incomplete fragments. If the latest input clearly requires a next message to understand, call complete_chat_turn with wait_for_next_message=true, no reply, and no scheduled message.
 If the current run says immediate response is required, wait_for_next_message must be false.
 
 After calling complete_chat_turn, your final answer should be exactly: done
