@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Archive, AudioLines, CalendarCheck2, CalendarClock, FileText, MessageSquare, RefreshCw, Users } from "lucide-react"
+import { Archive, AudioLines, CalendarCheck2, CalendarClock, FileText, MessageSquare, RefreshCw, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { getDeveloperDashboard } from "@/api/developer"
 import { Button } from "@/components/ui/button"
@@ -37,7 +37,6 @@ export default function DeveloperPage() {
     { label: "Messages", value: dashboard.messages.toLocaleString(), icon: MessageSquare },
     { label: "Completed tasks", value: dashboard.completed_tasks.toLocaleString(), icon: CalendarCheck2 },
     { label: "Waiting tasks", value: dashboard.waiting_tasks.toLocaleString(), icon: CalendarClock },
-    { label: "Users", value: dashboard.users.toLocaleString(), icon: Users },
     { label: "User summaries", value: dashboard.user_profile_summaries.toLocaleString(), icon: FileText },
     { label: "Conversation archives", value: dashboard.conversation_archives.toLocaleString(), icon: Archive },
     { label: "Voice files", value: dashboard.voice_files.toLocaleString(), icon: AudioLines },
@@ -51,14 +50,24 @@ export default function DeveloperPage() {
       actions={<Button variant="outline" size="icon" onClick={loadDashboard} disabled={loading} title="Refresh dashboard"><RefreshCw className="h-4 w-4" /></Button>}
     >
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {loading ? Array.from({ length: 8 }, (_, index) => <div key={index} className="h-28 animate-pulse border bg-muted/40" />) : stats.map((stat) => {
+        {loading ? Array.from({ length: 8 }, (_, index) => <div key={index} className="h-28 animate-pulse border bg-muted/40" />) : <>
+          <div className="border p-4 sm:col-span-2">
+            <UserRound className="h-5 w-5 text-muted-foreground" />
+            <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="text-2xl font-semibold">{dashboard?.current_user.username}</p>
+              <p className="text-sm text-muted-foreground">ID {dashboard?.current_user.id} · {dashboard?.current_user.role}</p>
+            </div>
+            <p className="mt-1 truncate text-sm text-muted-foreground">{dashboard?.current_user.email || dashboard?.current_user.phone || "No contact information"}</p>
+          </div>
+          {stats.map((stat) => {
           const Icon = stat.icon
           return <div key={stat.label} className="border p-4">
             <Icon className="h-5 w-5 text-muted-foreground" />
             <p className="mt-5 text-2xl font-semibold tabular-nums">{stat.value}</p>
             <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
           </div>
-        })}
+          })}
+        </>}
       </div>
     </DeveloperLayout>
   )

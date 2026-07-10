@@ -21,7 +21,16 @@ export interface DeveloperDashboard {
   messages: number
   completed_tasks: number
   waiting_tasks: number
-  users: number
+  current_user: {
+    id: number
+    username: string
+    email: string | null
+    phone: string | null
+    role: string
+    last_active_at: string | null
+    created_at: string
+    updated_at: string
+  }
   user_profile_summaries: number
   conversation_archives: number
   voice_files: number

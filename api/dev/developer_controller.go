@@ -19,7 +19,12 @@ func NewController(service *services.DeveloperDataService) *Controller {
 }
 
 func (cc *Controller) Dashboard(c *gin.Context) {
-	result, err := cc.service.Dashboard()
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	result, err := cc.service.Dashboard(userID.(int64))
 	if err != nil {
 		cc.writeError(c, err)
 		return
