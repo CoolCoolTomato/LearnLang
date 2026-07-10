@@ -8,9 +8,10 @@ import (
 	"learnlang-api/config"
 	"learnlang-api/models"
 	"learnlang-api/services"
-	"net"
 	"strings"
 	"time"
+
+	"github.com/milvus-io/milvus/client/v2/milvusclient"
 )
 
 type ChatService struct {
@@ -32,12 +33,11 @@ func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.St
 	}
 }
 
-func NewMemoryStore(milvusCfg config.MilvusConfig) *memory.Store {
+func NewMemoryStore(milvusCfg config.MilvusConfig, client *milvusclient.Client) *memory.Store {
 	return memory.NewStore(memory.Config{
-		Address:    milvusAddress(milvusCfg),
 		Collection: milvusCfg.Collection,
 		Dimension:  milvusCfg.Dimension,
-	})
+	}, client)
 }
 
 func (s *ChatService) TranscribeAudio(ctx context.Context, userID int64, audioFile io.Reader) (string, *int64, error) {
@@ -194,19 +194,4 @@ func toAgentSettings(settings *models.UserSettings) UserSettings {
 		NativeLanguage:      settings.NativeLanguage,
 		TargetLanguage:      settings.TargetLanguage,
 	}
-}
-
-func milvusAddress(cfg config.MilvusConfig) string {
-	host := strings.TrimSpace(cfg.Host)
-	port := strings.TrimSpace(cfg.Port)
-	if host == "" {
-		host = "localhost"
-	}
-	if port == "" {
-		port = "19530"
-	}
-	if strings.Contains(host, ":") {
-		return host
-	}
-	return net.JoinHostPort(host, port)
 }

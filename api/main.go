@@ -24,6 +24,10 @@ func main() {
 		log.Fatal("Failed to connect to redis:", err)
 	}
 
+	if err := database.ConnectMilvus(cfg); err != nil {
+		log.Fatal("Failed to connect to milvus:", err)
+	}
+
 	if err := database.Migrate(); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

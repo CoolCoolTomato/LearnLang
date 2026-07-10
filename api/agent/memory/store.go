@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,7 +27,6 @@ const (
 )
 
 type Config struct {
-	Address    string
 	Collection string
 	Dimension  int
 }
@@ -44,17 +44,20 @@ type Summary struct {
 }
 
 type Store struct {
-	cfg Config
+	cfg       Config
+	client    *milvusclient.Client
+	ready     bool
+	readyLock sync.Mutex
 }
 
-func NewStore(cfg Config) *Store {
+func NewStore(cfg Config, client *milvusclient.Client) *Store {
 	if cfg.Collection == "" {
 		cfg.Collection = "user_memory_summaries"
 	}
 	if cfg.Dimension <= 0 {
 		cfg.Dimension = 1536
 	}
-	return &Store{cfg: cfg}
+	return &Store{cfg: cfg, client: client}
 }
 
 func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string, messageIDs []int64, embedding []float32) (string, error) {
@@ -62,13 +65,7 @@ func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string,
 		return "", err
 	}
 
-	cli, err := s.client(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer cli.Close(ctx)
-
-	if err := s.ensureCollection(ctx, cli); err != nil {
+	if err := s.ensureCollection(ctx); err != nil {
 		return "", err
 	}
 
@@ -79,7 +76,7 @@ func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string,
 		return "", err
 	}
 
-	_, err = cli.Insert(ctx, milvusclient.NewColumnBasedInsertOption(s.cfg.Collection).
+	_, err = s.client.Insert(ctx, milvusclient.NewColumnBasedInsertOption(s.cfg.Collection).
 		WithColumns(
 			column.NewColumnVarChar(fieldID, []string{id}),
 			column.NewColumnInt64(fieldUserID, []int64{userID}),
@@ -95,7 +92,7 @@ func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string,
 		return "", err
 	}
 
-	flushTask, err := cli.Flush(ctx, milvusclient.NewFlushOption(s.cfg.Collection))
+	flushTask, err := s.client.Flush(ctx, milvusclient.NewFlushOption(s.cfg.Collection))
 	if err == nil {
 		_ = flushTask.Await(ctx)
 	}
@@ -111,17 +108,11 @@ func (s *Store) Search(ctx context.Context, userID int64, embedding []float32, l
 		return nil, err
 	}
 
-	cli, err := s.client(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cli.Close(ctx)
-
-	if err := s.ensureCollection(ctx, cli); err != nil {
+	if err := s.ensureCollection(ctx); err != nil {
 		return nil, err
 	}
 
-	results, err := cli.Search(ctx, milvusclient.NewSearchOption(
+	results, err := s.client.Search(ctx, milvusclient.NewSearchOption(
 		s.cfg.Collection,
 		limit,
 		[]entity.Vector{entity.FloatVector(embedding)},
@@ -137,20 +128,21 @@ func (s *Store) Search(ctx context.Context, userID int64, embedding []float32, l
 	return summariesFromResult(results[0])
 }
 
-func (s *Store) client(ctx context.Context) (*milvusclient.Client, error) {
-	if s.cfg.Address == "" {
-		return nil, fmt.Errorf("milvus address is required")
+func (s *Store) ensureCollection(ctx context.Context) error {
+	if s.client == nil {
+		return fmt.Errorf("milvus client is not initialized")
 	}
 
-	return milvusclient.New(ctx, &milvusclient.ClientConfig{
-		Address: s.cfg.Address,
-	})
-}
+	s.readyLock.Lock()
+	defer s.readyLock.Unlock()
 
-func (s *Store) ensureCollection(ctx context.Context, cli *milvusclient.Client) error {
-	has, err := cli.HasCollection(ctx, milvusclient.NewHasCollectionOption(s.cfg.Collection))
+	if s.ready {
+		return nil
+	}
+
+	has, err := s.client.HasCollection(ctx, milvusclient.NewHasCollectionOption(s.cfg.Collection))
 	if err != nil {
-		return err
+		return fmt.Errorf("check milvus collection %s: %w", s.cfg.Collection, err)
 	}
 	if !has {
 		schema := entity.NewSchema().
@@ -164,20 +156,31 @@ func (s *Store) ensureCollection(ctx context.Context, cli *milvusclient.Client) 
 			WithField(entity.NewField().WithName(fieldUpdatedAt).WithDataType(entity.FieldTypeInt64)).
 			WithField(entity.NewField().WithName(fieldEmbedding).WithDataType(entity.FieldTypeFloatVector).WithDim(int64(s.cfg.Dimension)))
 
-		err = cli.CreateCollection(ctx, milvusclient.NewCreateCollectionOption(s.cfg.Collection, schema).
+		err = s.client.CreateCollection(ctx, milvusclient.NewCreateCollectionOption(s.cfg.Collection, schema).
 			WithIndexOptions(
 				milvusclient.NewCreateIndexOption(s.cfg.Collection, fieldEmbedding, index.NewAutoIndex(entity.COSINE)),
 			))
 		if err != nil {
-			return err
+			has, checkErr := s.client.HasCollection(ctx, milvusclient.NewHasCollectionOption(s.cfg.Collection))
+			if checkErr != nil {
+				return fmt.Errorf("create milvus collection %s: %w; recheck collection existence: %v", s.cfg.Collection, err, checkErr)
+			}
+			if !has {
+				return fmt.Errorf("create milvus collection %s: %w", s.cfg.Collection, err)
+			}
 		}
 	}
 
-	loadTask, err := cli.LoadCollection(ctx, milvusclient.NewLoadCollectionOption(s.cfg.Collection))
+	loadTask, err := s.client.LoadCollection(ctx, milvusclient.NewLoadCollectionOption(s.cfg.Collection))
 	if err != nil {
-		return err
+		return fmt.Errorf("load milvus collection %s: %w", s.cfg.Collection, err)
 	}
-	return loadTask.Await(ctx)
+	if err := loadTask.Await(ctx); err != nil {
+		return fmt.Errorf("await milvus collection %s load: %w", s.cfg.Collection, err)
+	}
+
+	s.ready = true
+	return nil
 }
 
 func (s *Store) validateEmbedding(embedding []float32) error {
