@@ -7,6 +7,8 @@ const Setting = lazy(() => import('@/app/setting/page'))
 const Profile = lazy(() => import('@/app/profile/page'))
 const SignIn = lazy(() => import('@/app/sign-in/page'))
 const SignUp = lazy(() => import('@/app/sign-up/page'))
+const Developer = lazy(() => import('@/app/developer/page'))
+const DeveloperResource = lazy(() => import('@/app/developer/resource-page'))
 
 export interface RouteConfig {
   path: string
@@ -50,5 +52,41 @@ export const routes: RouteConfig[] = [
   {
     path: "/sign-up",
     element: <SignUp />
+  },
+  {
+    path: "/developer",
+    element: (
+      <ProtectedRoute>
+        <Developer />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/developer/messages",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/scheduled-tasks",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/user-profile-summaries",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/conversation-archives",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/user-settings",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/users",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
+  },
+  {
+    path: "/developer/voice-files",
+    element: <ProtectedRoute><DeveloperResource /></ProtectedRoute>
   },
 ]

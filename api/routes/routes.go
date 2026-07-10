@@ -6,6 +6,7 @@ import (
 	"learnlang-api/agent/archive"
 	"learnlang-api/config"
 	"learnlang-api/database"
+	"learnlang-api/dev"
 	"learnlang-api/services"
 	"learnlang-api/utils"
 	"learnlang-api/websocket"
@@ -70,4 +71,5 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	api := r.Group("/api")
 
 	SetupUserRoutes(api, cfg, tokenManager, svc)
+	dev.SetupRoutes(api, cfg, tokenManager)
 }

@@ -35,7 +35,7 @@ func InitUser(cfg *config.Config) error {
 		Username:     cfg.User.Username,
 		Email:        email,
 		PasswordHash: hashedPassword,
-		Role:         "user",
+		Role:         "developer",
 	}
 
 	if err := DB.Create(&admin).Error; err != nil {
