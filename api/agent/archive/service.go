@@ -10,14 +10,11 @@ import (
 	"learnlang-api/services"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/tmc/langchaingo/llms"
 )
-
-const maxArchiveSummaryRunes = 120
 
 type Service struct {
 	archiveService *services.ConversationArchiveService
@@ -173,9 +170,6 @@ func parseSegments(output string) ([]archiveSegment, error) {
 		segment.Summary = normalizeSummary(segment.Summary)
 		if segment.Summary == "" || len(segment.MessageIDs) == 0 {
 			continue
-		}
-		if utf8.RuneCountInString(segment.Summary) > maxArchiveSummaryRunes {
-			return nil, fmt.Errorf("archive segment summary exceeds %d characters", maxArchiveSummaryRunes)
 		}
 		ids := append([]int64(nil), segment.MessageIDs...)
 		sort.Slice(ids, func(i, j int) bool {
