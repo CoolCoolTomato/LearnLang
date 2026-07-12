@@ -10,11 +10,14 @@ import (
 	"learnlang-api/services"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/tmc/langchaingo/llms"
 )
+
+const maxArchiveSummaryRunes = 120
 
 type Service struct {
 	archiveService *services.ConversationArchiveService
@@ -167,9 +170,12 @@ func parseSegments(output string) ([]archiveSegment, error) {
 
 	segments := make([]archiveSegment, 0, len(resp.Segments))
 	for _, segment := range resp.Segments {
-		segment.Summary = strings.TrimSpace(segment.Summary)
+		segment.Summary = normalizeSummary(segment.Summary)
 		if segment.Summary == "" || len(segment.MessageIDs) == 0 {
 			continue
+		}
+		if utf8.RuneCountInString(segment.Summary) > maxArchiveSummaryRunes {
+			return nil, fmt.Errorf("archive segment summary exceeds %d characters", maxArchiveSummaryRunes)
 		}
 		ids := append([]int64(nil), segment.MessageIDs...)
 		sort.Slice(ids, func(i, j int) bool {
@@ -180,6 +186,10 @@ func parseSegments(output string) ([]archiveSegment, error) {
 	}
 
 	return segments, nil
+}
+
+func normalizeSummary(summary string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(summary)), " ")
 }
 
 func buildPrompt(candidates, reserved []models.Message) string {
@@ -196,8 +206,9 @@ Rules:
 - Keep segment order chronological.
 - Do not include reserved latest messages in any segment.
 - If the candidate messages appear to be one ongoing unfinished topic, return an empty segments array.
-- Summaries are for embeddings, so write dense semantic summaries, not direct quotes.
-- Preserve user facts, preferences, plans, goals, decisions, emotional context, and assistant responses that explain the interaction.
+- Summaries are for embedding retrieval. Write one compact, standalone paragraph targeted at 30-90 characters. Never pad a short summary with invented detail, quote the dialogue, or repeat conversational filler.
+- Use only facts stated in the messages. Make the topic and named entities explicit, then retain only details useful for future retrieval: user facts or preferences, goals, decisions, outcomes, unresolved work, and important constraints.
+- Prefer this compact format, omitting empty parts: "Topic: ...; Fact/decision: ...; Keywords: ...". Keywords must contain concrete names, technologies, concepts, or task terms mentioned in the dialogue.
 - Return JSON only, with no markdown.
 
 Output schema:
