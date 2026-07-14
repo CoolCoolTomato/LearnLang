@@ -18,11 +18,12 @@ import (
 )
 
 type ChatRuntimeService struct {
-	messageService       *MessageService
-	userSettingsService  *UserSettingsService
-	scheduledTaskService *ScheduledTaskService
-	voiceFileService     *VoiceFileService
-	wsHub                WSHub
+	messageService        *MessageService
+	userSettingsService   *UserSettingsService
+	profileSummaryService *UserProfileSummaryService
+	scheduledTaskService  *ScheduledTaskService
+	voiceFileService      *VoiceFileService
+	wsHub                 WSHub
 }
 
 type WSHub interface {
@@ -32,16 +33,18 @@ type WSHub interface {
 func NewChatRuntimeService(
 	messageService *MessageService,
 	userSettingsService *UserSettingsService,
+	profileSummaryService *UserProfileSummaryService,
 	scheduledTaskService *ScheduledTaskService,
 	voiceFileService *VoiceFileService,
 	wsHub WSHub,
 ) *ChatRuntimeService {
 	return &ChatRuntimeService{
-		messageService:       messageService,
-		userSettingsService:  userSettingsService,
-		scheduledTaskService: scheduledTaskService,
-		voiceFileService:     voiceFileService,
-		wsHub:                wsHub,
+		messageService:        messageService,
+		userSettingsService:   userSettingsService,
+		profileSummaryService: profileSummaryService,
+		scheduledTaskService:  scheduledTaskService,
+		voiceFileService:      voiceFileService,
+		wsHub:                 wsHub,
 	}
 }
 
@@ -344,4 +347,8 @@ func (crs *ChatRuntimeService) GetRecentConversation(userID int64) ([]models.Mes
 
 func (crs *ChatRuntimeService) UserSettings(userID int64) (*models.UserSettings, error) {
 	return crs.userSettingsService.GetUserSettings(userID)
+}
+
+func (crs *ChatRuntimeService) UserProfileSummary(userID int64) (*models.UserProfileSummary, error) {
+	return crs.profileSummaryService.GetUserProfileSummary(userID)
 }

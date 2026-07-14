@@ -1,8 +1,11 @@
 package services
 
 import (
+	"errors"
 	"learnlang-api/database"
 	"learnlang-api/models"
+
+	"gorm.io/gorm"
 )
 
 type UserProfileSummaryService struct{}
@@ -15,7 +18,10 @@ func (ups *UserProfileSummaryService) GetUserProfileSummary(userID int64) (*mode
 	var summary models.UserProfileSummary
 	err := database.DB.Where("user_id = ?", userID).First(&summary).Error
 
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		summary = models.UserProfileSummary{UserID: userID}
 		if err := database.DB.Create(&summary).Error; err != nil {
 			return nil, err

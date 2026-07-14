@@ -36,6 +36,10 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 	if err != nil {
 		return nil, err
 	}
+	profile, err := s.runtime.UserProfileSummary(req.UserID)
+	if err != nil {
+		return nil, err
+	}
 
 	llm, err := agentllm.New(req.Settings.APIKey, req.Settings.APIBaseURL, req.Settings.Model, req.Settings.LLMType)
 	if err != nil {
@@ -81,6 +85,7 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		req.Timezone,
 		req.Instant,
 		shortTermMessages,
+		profile.Summary,
 	)
 
 	agent := lcagents.NewOpenAIFunctionsAgent(
