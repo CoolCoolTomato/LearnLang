@@ -9,13 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager) {
-	controller := NewController(services.NewDeveloperDataService())
+func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager, archiveSearchService *services.DeveloperArchiveSearchService) {
+	controller := NewController(services.NewDeveloperDataService(), archiveSearchService)
 	group := api.Group("/user/dev")
 	group.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
 	group.Use(middleware.DeveloperMiddleware(cfg.User.Username))
 	{
 		group.GET("/dashboard", controller.Dashboard)
+		group.POST("/conversation-archives/search", controller.SearchConversationArchives)
 		group.GET("/:resource", controller.List)
 		group.POST("/:resource", controller.Create)
 		group.DELETE("/:resource", controller.DeleteMany)

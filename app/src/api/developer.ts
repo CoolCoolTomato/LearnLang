@@ -1,5 +1,5 @@
 import { http } from "./request"
-import type { DeveloperDashboard, DeveloperPage, DeveloperResource } from "@/types/developer"
+import type { DeveloperArchiveSearchResult, DeveloperDashboard, DeveloperPage, DeveloperResource } from "@/types/developer"
 
 const basePath = "/dev"
 
@@ -25,4 +25,8 @@ export function deleteDeveloperRecord(resource: DeveloperResource, id: number) {
 
 export function deleteDeveloperRecords(resource: DeveloperResource, ids: number[]) {
   return http.delete<{ deleted: number }>(`${basePath}/${resource}`, { body: JSON.stringify({ ids }) })
+}
+
+export function searchDeveloperArchives(query: string, limit = 5) {
+  return http.post<{ query: string; results: DeveloperArchiveSearchResult[] }>(`${basePath}/conversation-archives/search`, { query, limit })
 }

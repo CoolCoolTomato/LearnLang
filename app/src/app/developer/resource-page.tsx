@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
 import { Navigate, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -16,11 +16,13 @@ import {
   createDeveloperRecord,
   deleteDeveloperRecords,
   listDeveloperRecords,
+  searchDeveloperArchives,
   updateDeveloperRecord,
 } from "@/api/developer"
 import { getErrorMessage } from "@/lib/error"
-import { developerResources, type DeveloperResource } from "@/types/developer"
+import { developerResources, type DeveloperArchiveSearchResult, type DeveloperResource } from "@/types/developer"
 import { DeveloperLayout } from "./developer-layout"
+import { Input } from "@/components/ui/input"
 
 const pageSize = 20
 
@@ -54,6 +56,11 @@ export default function DeveloperResourcePage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editorValue, setEditorValue] = useState("{}")
   const [saving, setSaving] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchLimit, setSearchLimit] = useState(5)
+  const [searchResults, setSearchResults] = useState<DeveloperArchiveSearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchSubmitted, setSearchSubmitted] = useState(false)
 
   const loadRecords = useCallback(async () => {
     if (!resource) return
@@ -69,6 +76,24 @@ export default function DeveloperResourcePage() {
       setLoading(false)
     }
   }, [page, resource])
+
+  const searchArchives = async () => {
+    const query = searchQuery.trim()
+    if (!query) {
+      toast.error("Enter a search query")
+      return
+    }
+    try {
+      setSearchLoading(true)
+      const response = await searchDeveloperArchives(query, searchLimit)
+      setSearchResults(response.results || [])
+      setSearchSubmitted(true)
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to search archive memories"))
+    } finally {
+      setSearchLoading(false)
+    }
+  }
 
   useEffect(() => {
     loadRecords()
@@ -154,6 +179,66 @@ export default function DeveloperResourcePage() {
         <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New record</Button>
       </>}
     >
+
+      {resource === "conversation-archives" && <section className="mt-5 border p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <label className="min-w-0 flex-1 text-sm font-medium">
+            RAG retrieval query
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") void searchArchives() }}
+              placeholder="Search archived memory"
+              className="mt-1"
+              disabled={searchLoading}
+            />
+          </label>
+          <label className="w-full text-sm font-medium md:w-24">
+            Top K
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={searchLimit}
+              onChange={(event) => setSearchLimit(Math.min(20, Math.max(1, Number(event.target.value) || 1)))}
+              className="mt-1"
+              disabled={searchLoading}
+            />
+          </label>
+          <Button onClick={() => void searchArchives()} disabled={searchLoading || !searchQuery.trim()}>
+            {searchLoading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+            Search
+          </Button>
+        </div>
+
+        {searchSubmitted && <div className="mt-4 overflow-x-auto border">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/50 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3 font-medium">Score</th>
+                <th className="px-3 py-3 font-medium">Archive</th>
+                <th className="px-3 py-3 font-medium">Summary</th>
+                <th className="px-3 py-3 font-medium">Messages</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {searchResults.length === 0 ? (
+                <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">No matching memories</td></tr>
+              ) : searchResults.map((result) => (
+                <tr key={result.embedding_id} className="hover:bg-muted/30">
+                  <td className="whitespace-nowrap px-3 py-3 align-top font-mono text-xs">{result.score.toFixed(4)}</td>
+                  <td className="whitespace-nowrap px-3 py-3 align-top">#{result.archive_id || "-"}</td>
+                  <td className="min-w-72 max-w-xl px-3 py-3 align-top">{result.summary}</td>
+                  <td className="max-w-xl px-3 py-3 align-top text-xs text-muted-foreground">
+                    <div className="mb-1 font-mono">IDs: {result.message_ids.join(", ") || "-"}</div>
+                    {result.messages.map((message) => <div key={String(message.id)} className="truncate" title={formatValue(message.text_content)}>{String(message.role || "message")}: {formatValue(message.text_content)}</div>)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>}
+      </section>}
 
         <div className="mt-5 overflow-x-auto border">
           <table className="w-full text-left text-sm">

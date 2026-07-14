@@ -36,3 +36,13 @@ export interface DeveloperDashboard {
   voice_files: number
   voice_file_bytes: number
 }
+
+export interface DeveloperArchiveSearchResult {
+  embedding_id: string
+  archive_id: number
+  score: number
+  summary: string
+  message_ids: number[]
+  messages: Record<string, unknown>[]
+  created_at: string
+}

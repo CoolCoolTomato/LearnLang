@@ -2,12 +2,8 @@ package tools
 
 import (
 	"context"
-	"fmt"
+	"learnlang-api/agent/embedding"
 	"learnlang-api/agent/memory"
-	"strings"
-
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 )
 
 type LongTermMemorySearchTool struct {
@@ -95,46 +91,11 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 }
 
 func (t LongTermMemorySearchTool) createEmbedding(ctx context.Context, text string) ([]float32, error) {
-	apiKey := strings.TrimSpace(t.APIKey)
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(t.FallbackKey)
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("embedding api key is required")
-	}
-
-	apiBaseURL := strings.TrimSpace(t.APIBaseURL)
-	if apiBaseURL == "" {
-		apiBaseURL = strings.TrimSpace(t.FallbackURL)
-	}
-
-	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
-	if apiBaseURL != "" {
-		opts = append(opts, option.WithBaseURL(apiBaseURL))
-	}
-
-	model := strings.TrimSpace(t.Model)
-	if model == "" {
-		model = "text-embedding-3-small"
-	}
-
-	client := openai.NewClient(opts...)
-	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(model),
-		Input: openai.EmbeddingNewParamsInputUnion{
-			OfArrayOfStrings: []string{text},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("embedding response is empty")
-	}
-
-	vector := make([]float32, 0, len(resp.Data[0].Embedding))
-	for _, v := range resp.Data[0].Embedding {
-		vector = append(vector, float32(v))
-	}
-	return vector, nil
+	return embedding.Create(ctx, embedding.Config{
+		APIKey:      t.APIKey,
+		APIBaseURL:  t.APIBaseURL,
+		Model:       t.Model,
+		FallbackKey: t.FallbackKey,
+		FallbackURL: t.FallbackURL,
+	}, text)
 }

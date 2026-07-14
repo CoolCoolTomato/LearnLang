@@ -11,11 +11,12 @@ import (
 )
 
 type Controller struct {
-	service *services.DeveloperDataService
+	service              *services.DeveloperDataService
+	archiveSearchService *services.DeveloperArchiveSearchService
 }
 
-func NewController(service *services.DeveloperDataService) *Controller {
-	return &Controller{service: service}
+func NewController(service *services.DeveloperDataService, archiveSearchService *services.DeveloperArchiveSearchService) *Controller {
+	return &Controller{service: service, archiveSearchService: archiveSearchService}
 }
 
 func (cc *Controller) Dashboard(c *gin.Context) {
@@ -41,6 +42,32 @@ func (cc *Controller) List(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (cc *Controller) SearchConversationArchives(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	var request struct {
+		Query string `json:"query"`
+		Limit int    `json:"limit"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A JSON object with query is required"})
+		return
+	}
+	if cc.archiveSearchService == nil {
+		cc.writeError(c, errors.New("archive search service is not configured"))
+		return
+	}
+	results, err := cc.archiveSearchService.Search(c.Request.Context(), userID.(int64), request.Query, request.Limit)
+	if err != nil {
+		cc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"query": request.Query, "results": results})
 }
 
 func (cc *Controller) Get(c *gin.Context) {
@@ -129,7 +156,7 @@ func (cc *Controller) writeError(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		status = http.StatusNotFound
-	} else if err.Error() == "ids are required" || err.Error() == "at least one writable field is required" || len(err.Error()) >= 17 && err.Error()[:17] == "unknown developer" {
+	} else if err.Error() == "ids are required" || err.Error() == "query is required" || err.Error() == "at least one writable field is required" || len(err.Error()) >= 17 && err.Error()[:17] == "unknown developer" {
 		status = http.StatusBadRequest
 	}
 	c.JSON(status, gin.H{"error": err.Error()})
