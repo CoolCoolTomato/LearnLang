@@ -23,7 +23,7 @@ func (t LongTermMemorySearchTool) Name() string {
 }
 
 func (t LongTermMemorySearchTool) Description() string {
-	return "Search long-term memory summaries and return linked chat records. Input should be the current user message or search query."
+	return "Search long-term memory summaries and return linked chat records. Input must be a standalone semantic search query describing the memory needed. Resolve pronouns and omitted context using the current conversation, and include exact project names, people, technologies, errors, paths, commands, goals, decisions, or constraints that should match the memory. Do not pass a vague latest message verbatim."
 }
 
 func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (string, error) {

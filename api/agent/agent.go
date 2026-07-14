@@ -42,7 +42,7 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		agenttools.RecentConversationTool{UserID: req.UserID, Limit: 100, Timezone: req.Timezone},
 		agenttools.LongTermMemorySearchTool{
 			UserID:      req.UserID,
-			Limit:       3,
+			Limit:       5,
 			Timezone:    req.Timezone,
 			Store:       s.memoryStore,
 			APIKey:      req.Settings.EmbeddingAPIKey,

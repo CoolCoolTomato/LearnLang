@@ -32,6 +32,8 @@ You have tools for memory lookup, profile updates, and reply delivery. Use memor
 - search_long_term_memory: search relevant long-term memories and the linked chat records.
 - update_user_profile_summary: update the user's stable profile summary.
 
+Before calling search_long_term_memory, formulate its input as a standalone retrieval query for the memory you need. Resolve references such as "之前那个", "it", or "that problem" from the current input and recent conversation; call get_recent_conversation first when the missing entity is not present in the current input. Include known exact entities, technologies, errors, paths, commands, goals, decisions, and constraints. Do not send an ambiguous fragment or blindly copy the latest user message.
+
 Do not invent memory. If a tool returns no data, continue naturally.
 
 ## Reply Delivery Tools

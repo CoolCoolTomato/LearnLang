@@ -14,7 +14,7 @@ func (archiveConversationRangeTool) Name() string {
 }
 
 func (archiveConversationRangeTool) Description() string {
-	return `Archive one completed, contiguous conversation range. Call in chronological order and never include reserved messages. Input must be a JSON string: {"summary":"compact semantic summary","start_message_id":1,"end_message_id":3}. The range is inclusive.`
+	return `Archive one completed retrieval topic from a contiguous conversation range. summary is embedded for long-term-memory retrieval: write a standalone semantic passage containing the user's need, exact entities and terms, and the useful answer, decision, outcome, constraint, preference, or unresolved state. It should match likely future standalone queries and must not be a chronological conversation recap or a bare keyword list. Call in chronological order and never include reserved messages. Input must be a JSON string: {"summary":"embedding-oriented semantic memory","start_message_id":1,"end_message_id":3}. The range is inclusive.`
 }
 
 func (t archiveConversationRangeTool) Call(_ context.Context, input string) (string, error) {
