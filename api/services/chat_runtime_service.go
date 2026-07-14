@@ -290,6 +290,20 @@ func (crs *ChatRuntimeService) GetChatHistory(userID int64, beforeID *int64) ([]
 	return messages, nil
 }
 
+func (crs *ChatRuntimeService) GetShortTermMemory(ctx context.Context, userID, beforeMessageID int64, since time.Time) ([]models.Message, error) {
+	var messages []models.Message
+	query := database.DB.WithContext(ctx).
+		Where("user_id = ? AND created_at >= ?", userID, since).
+		Order("created_at ASC, id ASC")
+	if beforeMessageID > 0 {
+		query = query.Where("id < ?", beforeMessageID)
+	}
+	if err := query.Find(&messages).Error; err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
 func (crs *ChatRuntimeService) GetRecentConversation(userID int64) ([]models.Message, error) {
 	var allMessages []models.Message
 	err := database.DB.Where("user_id = ?", userID).

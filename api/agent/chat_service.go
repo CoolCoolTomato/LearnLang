@@ -82,7 +82,7 @@ func (s *ChatService) ProcessInstantAIResponse(userID int64, messageID int64) {
 
 func (s *ChatService) processAIResponse(userID int64, userMessage *models.Message) {
 	ctx := context.Background()
-	result, err := s.runAgentChat(ctx, userID, userMessage.TextContent, false)
+	result, err := s.runAgentChat(ctx, userID, userMessage.ID, userMessage.TextContent, false)
 	if err != nil {
 		return
 	}
@@ -122,7 +122,7 @@ func (s *ChatService) processInstantAIResponse(userID int64, messageID int64) {
 		return
 	}
 
-	_, err = s.runAgentChat(ctx, userID, target.TextContent, true)
+	_, err = s.runAgentChat(ctx, userID, target.ID, target.TextContent, true)
 	if err != nil {
 		return
 	}
@@ -140,7 +140,7 @@ func (s *ChatService) archiveConversation(userID int64) {
 	}()
 }
 
-func (s *ChatService) runAgentChat(ctx context.Context, userID int64, userInput string, instant bool) (*ChatResult, error) {
+func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID int64, userInput string, instant bool) (*ChatResult, error) {
 	settings, err := s.runtime.UserSettings(userID)
 	if err != nil {
 		return nil, err
@@ -158,12 +158,13 @@ func (s *ChatService) runAgentChat(ctx context.Context, userID int64, userInput 
 
 	agentSettings := toAgentSettings(settings)
 	result, err := s.agent.RunChat(ctx, ChatRequest{
-		UserID:      userID,
-		UserInput:   userInput,
-		Settings:    agentSettings,
-		Instant:     instant,
-		CurrentTime: time.Now().In(loc).Format(time.RFC3339),
-		Timezone:    timezone,
+		UserID:           userID,
+		CurrentMessageID: currentMessageID,
+		UserInput:        userInput,
+		Settings:         agentSettings,
+		Instant:          instant,
+		CurrentTime:      time.Now().In(loc).Format(time.RFC3339),
+		Timezone:         timezone,
 	})
 	if err != nil {
 		return nil, err

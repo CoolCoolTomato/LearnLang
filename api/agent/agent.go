@@ -7,6 +7,7 @@ import (
 	"learnlang-api/agent/prompts"
 	agenttools "learnlang-api/agent/tools"
 	"learnlang-api/services"
+	"time"
 
 	lcagents "github.com/tmc/langchaingo/agents"
 	"github.com/tmc/langchaingo/chains"
@@ -31,6 +32,11 @@ func NewService(cfg Config) *Service {
 }
 
 func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, error) {
+	shortTermMessages, err := s.runtime.GetShortTermMemory(ctx, req.UserID, req.CurrentMessageID, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+
 	llm, err := agentllm.New(req.Settings.APIKey, req.Settings.APIBaseURL, req.Settings.Model, req.Settings.LLMType)
 	if err != nil {
 		return nil, err
@@ -39,7 +45,6 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 	turnState := agenttools.NewTurnState()
 	tools := []lctools.Tool{
 		agenttools.UserProfileSummaryTool{UserID: req.UserID},
-		agenttools.RecentConversationTool{UserID: req.UserID, Limit: 100, Timezone: req.Timezone},
 		agenttools.LongTermMemorySearchTool{
 			UserID:      req.UserID,
 			Limit:       5,
@@ -50,6 +55,10 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			Model:       req.Settings.EmbeddingModel,
 			FallbackKey: req.Settings.APIKey,
 			FallbackURL: req.Settings.APIBaseURL,
+		},
+		agenttools.ArchivedConversationKeywordSearchTool{
+			UserID:   req.UserID,
+			Timezone: req.Timezone,
 		},
 		agenttools.SendChatReplyTool{
 			UserID:  req.UserID,
@@ -71,6 +80,7 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		req.CurrentTime,
 		req.Timezone,
 		req.Instant,
+		shortTermMessages,
 	)
 
 	agent := lcagents.NewOpenAIFunctionsAgent(

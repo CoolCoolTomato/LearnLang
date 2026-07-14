@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"learnlang-api/database"
 	"learnlang-api/models"
-	"sort"
 	"time"
 )
 
@@ -34,33 +33,6 @@ func linkedMessages(ctx context.Context, userID int64, messageIDs []int64) ([]mo
 	}
 
 	return ordered, nil
-}
-
-func continuousRecentMessages(allMessages []models.Message) []models.Message {
-	if len(allMessages) == 0 {
-		return []models.Message{}
-	}
-
-	const maxInterval = 60 * 60
-	recentMessages := make([]models.Message, 0, len(allMessages))
-	for i := 0; i < len(allMessages); i++ {
-		if i == 0 {
-			recentMessages = append(recentMessages, allMessages[i])
-			continue
-		}
-
-		interval := allMessages[i-1].CreatedAt.Unix() - allMessages[i].CreatedAt.Unix()
-		if interval > maxInterval {
-			break
-		}
-		recentMessages = append(recentMessages, allMessages[i])
-	}
-
-	sort.Slice(recentMessages, func(i, j int) bool {
-		return recentMessages[i].CreatedAt.Before(recentMessages[j].CreatedAt)
-	})
-
-	return recentMessages
 }
 
 func formatMessages(messages []models.Message, timezone string) []string {
