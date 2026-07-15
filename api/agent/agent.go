@@ -73,8 +73,9 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			State: turnState,
 		},
 		agenttools.ScheduleMessageTool{
-			UserID:  req.UserID,
-			Runtime: s.runtime,
+			UserID:   req.UserID,
+			Timezone: req.Timezone,
+			Runtime:  s.runtime,
 		},
 	}
 

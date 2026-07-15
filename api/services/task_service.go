@@ -28,7 +28,7 @@ func (s *ScheduledTaskService) CreateTask(ctx context.Context, userID int64, fun
 		UserID:       userID,
 		FunctionName: functionName,
 		Args:         args,
-		ScheduledAt:  scheduledAt,
+		ScheduledAt:  scheduledAt.UTC(),
 		Status:       "pending",
 	}
 	if err := database.DB.WithContext(ctx).Create(&task).Error; err != nil {

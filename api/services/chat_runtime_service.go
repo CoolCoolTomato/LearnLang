@@ -259,7 +259,7 @@ func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64
 		return 0, err
 	}
 
-	task, err := crs.scheduledTaskService.CreateTask(ctx, userID, "send_message", string(argsJSON), scheduledAt)
+	task, err := crs.scheduledTaskService.CreateTask(ctx, userID, "send_message", string(argsJSON), scheduledAt.UTC())
 	if err != nil {
 		return 0, err
 	}

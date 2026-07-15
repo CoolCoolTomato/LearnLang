@@ -76,7 +76,9 @@ If the turn only schedules a future message and no immediate reply is needed, do
 
 - Current time in the user's timezone: %s
 - User timezone: %s
-- If scheduling a message, call schedule_message with scheduled_at as UTC RFC3339 ending with Z.
+- The time fields in Short-Term Memory are displayed in the user's timezone.
+- Resolve relative scheduling phrases from the relevant conversation timestamp. Use the current local time for phrases about now, today, tomorrow, or a weekday; use the referenced message's time when the user says things such as "two hours after that".
+- When scheduling a message, pass scheduled_at as the user's local wall-clock time in YYYY-MM-DDTHH:MM:SS format. Do not append Z or a UTC offset; the application converts it to UTC.
 
 ## Completion Tool Input
 
@@ -121,9 +123,9 @@ Update rules:
 
 ## Scheduling
 
-To schedule a future message, call schedule_message with JSON:
+To schedule a future message, resolve the user's intended local date and time from the current conversation, then call schedule_message with JSON:
 
-{"message":"target language message","translation":"native language translation","scheduled_at":"UTC RFC3339 timestamp ending with Z"}
+{"message":"target language message","translation":"native language translation","scheduled_at":"YYYY-MM-DDTHH:MM:SS in the user's timezone"}
 
 After scheduling, call complete_chat_turn exactly once. Do not encode scheduled messages inside complete_chat_turn.
 
