@@ -7,81 +7,116 @@ import (
 )
 
 type archiveState struct {
-	candidates         []models.Message
-	candidateIndexByID map[int64]int
-	segments           []archiveSegment
-	nextCandidateIndex int
-	completed          bool
+	mapping       *archiveMessageMapping
+	reserved      []models.Message
+	segments      []archiveSegment
+	nextArchiveID int
 }
 
-func newArchiveState(candidates []models.Message) *archiveState {
-	indexByID := make(map[int64]int, len(candidates))
-	for index, message := range candidates {
-		indexByID[message.ID] = index
+type archiveMessageMapping struct {
+	byArchiveID map[int]models.Message
+	count       int
+}
+
+type archiveRangeInput struct {
+	Summary string `json:"summary"`
+	StartID int    `json:"start_id"`
+	EndID   int    `json:"end_id"`
+}
+
+type archivePromptWindow struct {
+	Candidates []mappedArchiveMessage
+	Reserved   []models.Message
+}
+
+type mappedArchiveMessage struct {
+	ID      int
+	Message models.Message
+}
+
+func newArchiveMessageMapping(messages []models.Message) *archiveMessageMapping {
+	byArchiveID := make(map[int]models.Message, len(messages))
+	for index, message := range messages {
+		byArchiveID[index+1] = message
 	}
+	return &archiveMessageMapping{byArchiveID: byArchiveID, count: len(messages)}
+}
+
+func (m *archiveMessageMapping) messageCount() int {
+	return m.count
+}
+
+func (m *archiveMessageMapping) messageIDs(startID, endID int) []int64 {
+	messageIDs := make([]int64, 0, endID-startID+1)
+	for id := startID; id <= endID; id++ {
+		messageIDs = append(messageIDs, m.byArchiveID[id].ID)
+	}
+	return messageIDs
+}
+
+func newArchiveState(candidates, reserved []models.Message) *archiveState {
 	return &archiveState{
-		candidates:         candidates,
-		candidateIndexByID: indexByID,
-		segments:           []archiveSegment{},
+		mapping:       newArchiveMessageMapping(candidates),
+		reserved:      append([]models.Message(nil), reserved...),
+		segments:      []archiveSegment{},
+		nextArchiveID: 1,
 	}
 }
 
-func (s *archiveState) AddRange(summary string, startMessageID, endMessageID int64) error {
-	if s.completed {
-		return fmt.Errorf("conversation archive is already completed")
+func (s *archiveState) CurrentWindow() archivePromptWindow {
+	candidates := make([]mappedArchiveMessage, 0, s.mapping.messageCount()-s.nextArchiveID+1)
+	for id := s.nextArchiveID; id <= s.mapping.messageCount(); id++ {
+		candidates = append(candidates, mappedArchiveMessage{ID: id, Message: s.mapping.byArchiveID[id]})
 	}
-	summary = normalizeSummary(summary)
-	if summary == "" {
-		return fmt.Errorf("summary is required")
+	return archivePromptWindow{
+		Candidates: candidates,
+		Reserved:   append([]models.Message(nil), s.reserved...),
 	}
-	if s.nextCandidateIndex >= len(s.candidates) {
-		return fmt.Errorf("all candidate messages are already archived")
+}
+
+func (s *archiveState) AddRanges(ranges []archiveRangeInput) error {
+	if len(ranges) == 0 {
+		return fmt.Errorf("ranges must contain at least one segment")
 	}
 
-	startIndex, ok := s.candidateIndexByID[startMessageID]
-	if !ok {
-		return fmt.Errorf("start message %d is not in the candidate window", startMessageID)
-	}
-	endIndex, ok := s.candidateIndexByID[endMessageID]
-	if !ok {
-		return fmt.Errorf("end message %d is not in the candidate window", endMessageID)
-	}
-	if startIndex != s.nextCandidateIndex {
-		return fmt.Errorf("range must start at the next candidate message %d", s.candidates[s.nextCandidateIndex].ID)
-	}
-	if endIndex < startIndex {
-		return fmt.Errorf("end message %d precedes start message %d", endMessageID, startMessageID)
+	nextID := s.nextArchiveID
+	newSegments := make([]archiveSegment, 0, len(ranges))
+	for _, archiveRange := range ranges {
+		summary := normalizeSummary(archiveRange.Summary)
+		if summary == "" {
+			return fmt.Errorf("archive segment summary is required")
+		}
+		if archiveRange.StartID < 1 || archiveRange.EndID < 1 || archiveRange.StartID > s.mapping.messageCount() || archiveRange.EndID > s.mapping.messageCount() {
+			return fmt.Errorf("range must use candidate IDs from 1 to %d", s.mapping.messageCount())
+		}
+		if archiveRange.StartID != nextID {
+			return fmt.Errorf("range must start at the next ID %d; archive ranges must cover the candidate prefix without skipping messages", nextID)
+		}
+		if archiveRange.EndID < archiveRange.StartID {
+			return fmt.Errorf("end ID %d precedes start ID %d", archiveRange.EndID, archiveRange.StartID)
+		}
+
+		newSegments = append(newSegments, archiveSegment{
+			Summary:    summary,
+			MessageIDs: s.mapping.messageIDs(archiveRange.StartID, archiveRange.EndID),
+		})
+		nextID = archiveRange.EndID + 1
 	}
 
-	messageIDs := make([]int64, 0, endIndex-startIndex+1)
-	for _, message := range s.candidates[startIndex : endIndex+1] {
-		messageIDs = append(messageIDs, message.ID)
-	}
-	s.segments = append(s.segments, archiveSegment{
-		Summary:    summary,
-		MessageIDs: messageIDs,
-	})
-	s.nextCandidateIndex = endIndex + 1
+	s.segments = append(s.segments, newSegments...)
+	s.nextArchiveID = nextID
 	return nil
 }
 
-func (s *archiveState) Complete() error {
-	if s.completed {
-		return fmt.Errorf("conversation archive is already completed")
-	}
-	s.completed = true
-	return nil
-}
-
-func (s *archiveState) ExpectedStartMessageID() *int64 {
-	if s.nextCandidateIndex >= len(s.candidates) {
+func (s *archiveState) ExpectedStartID() *int {
+	if s.nextArchiveID > s.mapping.messageCount() {
 		return nil
 	}
-	messageID := s.candidates[s.nextCandidateIndex].ID
-	return &messageID
+	id := s.nextArchiveID
+	return &id
 }
 
-func (s *archiveState) Result() ([]archiveSegment, bool) {
+func (s *archiveState) Result() []archiveSegment {
 	segments := make([]archiveSegment, len(s.segments))
 	for index, segment := range s.segments {
 		segments[index] = archiveSegment{
@@ -89,7 +124,7 @@ func (s *archiveState) Result() ([]archiveSegment, bool) {
 			MessageIDs: append([]int64(nil), segment.MessageIDs...),
 		}
 	}
-	return segments, s.completed
+	return segments
 }
 
 func normalizeSummary(summary string) string {

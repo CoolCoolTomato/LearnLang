@@ -14,14 +14,12 @@ func (archiveConversationRangeTool) Name() string {
 }
 
 func (archiveConversationRangeTool) Description() string {
-	return `Archive one completed retrieval topic from a contiguous conversation range. summary is embedded for long-term-memory retrieval: write a standalone semantic passage containing the user's need, exact entities and terms, and the useful answer, decision, outcome, constraint, preference, or unresolved state. It should match likely future standalone queries and must not be a chronological conversation recap or a bare keyword list. Call in chronological order and never include reserved messages. Input must be a JSON string: {"summary":"embedding-oriented semantic memory","start_message_id":1,"end_message_id":3}. The range is inclusive.`
+	return `Archive one or more retrieval topics from a contiguous prefix of the current candidate messages. summary is embedded for long-term-memory retrieval: write a standalone semantic passage containing the user's need, exact entities and terms, and the useful answer, decision, outcome, constraint, preference, or unresolved state. Submit every archiveable topic in one call as chronological ranges, but choose the stopping boundary so messages remain for the next batch. Never include reserved messages. Input must be JSON: {"ranges":[{"summary":"embedding-oriented semantic memory","start_id":1,"end_id":3},{"summary":"another retrieval memory","start_id":4,"end_id":8}]}. Ranges are inclusive and must form a contiguous prefix starting at candidate ID 1; do not skip an initial message.`
 }
 
 func (t archiveConversationRangeTool) Call(_ context.Context, input string) (string, error) {
 	var args struct {
-		Summary        string `json:"summary"`
-		StartMessageID int64  `json:"start_message_id"`
-		EndMessageID   int64  `json:"end_message_id"`
+		Ranges []archiveRangeInput `json:"ranges"`
 	}
 	if err := json.Unmarshal([]byte(input), &args); err != nil {
 		return archiveToolObservation(map[string]any{
@@ -35,48 +33,17 @@ func (t archiveConversationRangeTool) Call(_ context.Context, input string) (str
 			"error":  "archive state is not configured",
 		})
 	}
-	if err := t.state.AddRange(args.Summary, args.StartMessageID, args.EndMessageID); err != nil {
+	if err := t.state.AddRanges(args.Ranges); err != nil {
 		return archiveToolObservation(map[string]any{
-			"status":                    "rejected",
-			"error":                     err.Error(),
-			"expected_start_message_id": t.state.ExpectedStartMessageID(),
+			"status":            "rejected",
+			"error":             err.Error(),
+			"expected_start_id": t.state.ExpectedStartID(),
 		})
 	}
 	return archiveToolObservation(map[string]any{
-		"status":                    "accepted",
-		"start_message_id":          args.StartMessageID,
-		"end_message_id":            args.EndMessageID,
-		"expected_start_message_id": t.state.ExpectedStartMessageID(),
-	})
-}
-
-type completeConversationArchiveTool struct {
-	state *archiveState
-}
-
-func (completeConversationArchiveTool) Name() string {
-	return "complete_conversation_archive"
-}
-
-func (completeConversationArchiveTool) Description() string {
-	return `Finish the archive task after recording every completed conversation range. Call exactly once, including when no range can be archived. Input must be the JSON string {}.`
-}
-
-func (t completeConversationArchiveTool) Call(_ context.Context, _ string) (string, error) {
-	if t.state == nil {
-		return archiveToolObservation(map[string]any{
-			"status": "rejected",
-			"error":  "archive state is not configured",
-		})
-	}
-	if err := t.state.Complete(); err != nil {
-		return archiveToolObservation(map[string]any{
-			"status": "rejected",
-			"error":  err.Error(),
-		})
-	}
-	return archiveToolObservation(map[string]any{
-		"status": "completed",
+		"status":            "accepted",
+		"count":             len(args.Ranges),
+		"expected_start_id": t.state.ExpectedStartID(),
 	})
 }
 

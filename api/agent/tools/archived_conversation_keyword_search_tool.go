@@ -70,7 +70,7 @@ func (t ArchivedConversationKeywordSearchTool) Call(ctx context.Context, input s
 	archiveQuery := database.DB.WithContext(ctx).
 		Model(&models.ConversationArchive{}).
 		Distinct("conversation_archives.*").
-		Joins("JOIN messages ON messages.user_id = conversation_archives.user_id AND messages.id BETWEEN conversation_archives.start_message_id AND conversation_archives.end_message_id").
+		Joins("JOIN messages ON messages.user_id = conversation_archives.user_id AND conversation_archives.message_ids @> jsonb_build_array(messages.id)").
 		Where("conversation_archives.user_id = ?", t.UserID).
 		Where(`(messages.text_content ILIKE ? ESCAPE '\' OR messages.translation ILIKE ? ESCAPE '\')`, pattern, pattern)
 	if startTime != nil {
@@ -81,7 +81,7 @@ func (t ArchivedConversationKeywordSearchTool) Call(ctx context.Context, input s
 	}
 
 	var archives []models.ConversationArchive
-	if err := archiveQuery.Order("conversation_archives.end_message_id DESC").Limit(limit).Find(&archives).Error; err != nil {
+	if err := archiveQuery.Order("conversation_archives.id DESC").Limit(limit).Find(&archives).Error; err != nil {
 		return "", err
 	}
 	if len(archives) == 0 {
@@ -111,11 +111,9 @@ func (t ArchivedConversationKeywordSearchTool) Call(ctx context.Context, input s
 	}
 
 	type archiveResult struct {
-		ArchiveID      int64    `json:"archive_id"`
-		StartMessageID int64    `json:"start_message_id"`
-		EndMessageID   int64    `json:"end_message_id"`
-		Summary        string   `json:"summary"`
-		Messages       []string `json:"messages"`
+		ArchiveID int64    `json:"archive_id"`
+		Summary   string   `json:"summary"`
+		Messages  []string `json:"messages"`
 	}
 	results := make([]archiveResult, 0, len(archives))
 	for _, archive := range archives {
@@ -124,11 +122,9 @@ func (t ArchivedConversationKeywordSearchTool) Call(ctx context.Context, input s
 			return "", err
 		}
 		results = append(results, archiveResult{
-			ArchiveID:      archive.ID,
-			StartMessageID: archive.StartMessageID,
-			EndMessageID:   archive.EndMessageID,
-			Summary:        archive.Summary,
-			Messages:       formatMessages(messages, t.Timezone),
+			ArchiveID: archive.ID,
+			Summary:   archive.Summary,
+			Messages:  formatMessages(messages, t.Timezone),
 		})
 	}
 	return marshalToolResult(map[string]any{

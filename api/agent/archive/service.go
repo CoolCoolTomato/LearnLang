@@ -2,6 +2,7 @@ package archive
 
 import (
 	"context"
+	"fmt"
 	"learnlang-api/agent/memory"
 	"learnlang-api/models"
 	"learnlang-api/services"
@@ -47,27 +48,33 @@ func (s *Service) Run(ctx context.Context, userID int64) error {
 		return err
 	}
 
-	segments, err := s.segmenter.Generate(ctx, settings, window)
-	if err != nil {
-		return err
-	}
-	if len(segments) == 0 {
-		return nil
-	}
+	for len(window.Candidates) > 0 {
+		segments, err := s.segmenter.Generate(ctx, settings, window)
+		if err != nil {
+			return err
+		}
+		if len(segments) == 0 {
+			return fmt.Errorf("archive segmenter returned no segments for user %d", userID)
+		}
 
-	inputs := make([]services.ArchiveSegmentInput, 0, len(segments))
-	for _, segment := range segments {
-		inputs = append(inputs, services.ArchiveSegmentInput{
-			Summary:    segment.Summary,
-			MessageIDs: segment.MessageIDs,
-		})
-	}
+		inputs := make([]services.ArchiveSegmentInput, 0, len(segments))
+		for _, segment := range segments {
+			inputs = append(inputs, services.ArchiveSegmentInput{
+				Summary:    segment.Summary,
+				MessageIDs: segment.MessageIDs,
+			})
+		}
 
-	archives, err := s.archiveService.SaveArchiveSegments(ctx, userID, window.Candidates, inputs)
-	if err != nil {
-		return err
-	}
+		archives, err := s.archiveService.SaveArchiveSegments(ctx, userID, window.Candidates, inputs)
+		if err != nil {
+			return err
+		}
+		s.indexer.Index(ctx, userID, settings, archives)
 
-	s.indexer.Index(ctx, userID, settings, archives)
+		window, err = s.archiveService.GetArchiveWindow(ctx, userID)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

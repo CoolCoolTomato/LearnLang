@@ -6,13 +6,13 @@ import (
 	"learnlang-api/agent/llm"
 	"learnlang-api/models"
 	"learnlang-api/services"
+	"strings"
 
 	lcagents "github.com/tmc/langchaingo/agents"
-	"github.com/tmc/langchaingo/chains"
 	lctools "github.com/tmc/langchaingo/tools"
 )
 
-const archiveAgentMaxIterations = 24
+const archiveBatchPlanAttempts = 2
 
 type archiveSegment struct {
 	Summary    string
@@ -27,26 +27,48 @@ func (llmSegmenter) Generate(ctx context.Context, settings *models.UserSettings,
 		return nil, err
 	}
 
-	state := newArchiveState(window.Candidates)
-	tools := []lctools.Tool{
-		archiveConversationRangeTool{state: state},
-		completeConversationArchiveTool{state: state},
-	}
-	agent := lcagents.NewOpenAIFunctionsAgent(
-		model,
-		tools,
-		lcagents.NewOpenAIOption().WithSystemMessage(archiveSystemPrompt()),
-		lcagents.WithMaxIterations(archiveAgentMaxIterations),
-	)
-	executor := lcagents.NewExecutor(agent, lcagents.WithMaxIterations(archiveAgentMaxIterations))
+	state := newArchiveState(window.Candidates, window.Reserved)
+	rangeTool := archiveConversationRangeTool{state: state}
+	tools := []lctools.Tool{rangeTool}
+	promptWindow := state.CurrentWindow()
+	input := buildArchiveInput(promptWindow.Candidates, promptWindow.Reserved)
+	var lastObservation string
 
-	if _, err := chains.Run(ctx, executor, buildArchiveInput(window.Candidates, window.Reserved)); err != nil {
-		return nil, err
+	for attempt := 0; attempt < archiveBatchPlanAttempts; attempt++ {
+		agent := lcagents.NewOpenAIFunctionsAgent(
+			model,
+			tools,
+			lcagents.NewOpenAIOption().WithSystemMessage(archiveSystemPrompt()),
+		)
+
+		planInput := input
+		if lastObservation != "" {
+			planInput += "\nThe previous tool call was rejected. Correct the input using this observation:\n" + lastObservation
+		}
+		actions, _, err := agent.Plan(ctx, nil, map[string]string{"input": planInput})
+		if err != nil {
+			return nil, err
+		}
+		if len(actions) == 0 {
+			return nil, fmt.Errorf("archive agent did not call archive_conversation_range")
+		}
+
+		for _, action := range actions {
+			if !strings.EqualFold(action.Tool, rangeTool.Name()) {
+				continue
+			}
+			observation, err := rangeTool.Call(ctx, action.ToolInput)
+			if err != nil {
+				return nil, err
+			}
+			lastObservation = observation
+		}
+
+		segments := state.Result()
+		if len(segments) > 0 {
+			return segments, nil
+		}
 	}
 
-	segments, completed := state.Result()
-	if !completed {
-		return nil, fmt.Errorf("archive agent finished without calling complete_conversation_archive")
-	}
-	return segments, nil
+	return nil, fmt.Errorf("archive agent made no progress after %d attempts: %s", archiveBatchPlanAttempts, lastObservation)
 }

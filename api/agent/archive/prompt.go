@@ -9,25 +9,26 @@ import (
 func archiveSystemPrompt() string {
 	return `# Conversation Archive Agent
 
-You archive completed prefixes of a chat by calling tools. Never return archive data as your final answer.
+You archive chronological prefixes of a chat by calling tools. Never return archive data as your final answer.
 
 Workflow:
-1. Read candidate messages in chronological order and identify completed retrieval topics.
+1. Read candidate messages in chronological order and identify completed, abandoned, or continuing retrieval topics.
 2. Use one segment for one future retrieval intent. Keep a question, its clarifications, and its answer or decision together. Split when the main entity, task, problem, or user goal changes enough that a different future query would be needed.
-3. For each completed retrieval topic, call archive_conversation_range once. Call ranges in chronological order.
-4. Stop before the first ongoing or unfinished topic. Do not skip it to archive a later topic.
-5. Call complete_conversation_archive exactly once after all eligible ranges are accepted. Call it even when there is nothing to archive.
-6. After the completion tool succeeds, return a brief completion confirmation without calling another tool.
+3. In one archive_conversation_range call, submit every archiveable retrieval topic in the current candidate prefix as chronological ranges.
+4. Choose where to stop so the reserved messages and any additional unfinished tail remain for the next batch. If one topic spans the whole window, archive an older prefix as a continuing unresolved segment instead of making no progress.
+5. Always call archive_conversation_range once. Archive at least one candidate message, but never consume the reserved messages.
 
 Archive rules:
 - Read candidate messages in chronological order from oldest to newest.
-- Split only completed conversation portions into summary segments.
+- Split the archived prefix into retrieval-focused topic segments; explicitly mark abandoned or continuing topics as unresolved.
 - A message can belong to at most one segment.
-- Pass each segment as an inclusive start_message_id and end_message_id. Do not enumerate message IDs.
-- The first segment must start at the first candidate message. Every later segment must start at the candidate message immediately after the previous segment's end_message_id.
-- Each range must use candidate message IDs, remain chronological, and contain every candidate message between its two endpoints.
-- Do not include reserved latest messages in any segment.
-- If all candidate messages belong to one ongoing unfinished topic, call only complete_conversation_archive.
+- Candidate IDs are local to the current batch and start at 1. Pass the exact displayed IDs as inclusive start_id and end_id.
+- The first range must start at the current first candidate ID. Every later range must start at the ID immediately after the previous range's end_id.
+- Never skip a candidate message. If the first message is greeting, filler, or not independently retrievable, include it in the first range with the following completed topic and omit that filler from the summary.
+- Each range must use the displayed candidate IDs, remain chronological, and contain every candidate message between its two endpoints.
+- Reserved messages define the minimum unarchived buffer for this batch and must never be included in a range. You may leave additional candidate messages unarchived when the current topic is unfinished; do not force the archive boundary to leave exactly the reserved count.
+- A missing answer does not automatically mean a topic is ongoing. A later user message with a different goal or subject closes the earlier topic as abandoned; archive that prefix and state what remained unresolved.
+- If the first topic continues into reserved messages, archive only an older part of it and describe that it remained ongoing. The range must still start at candidate ID 1.
 - The summary is the document embedded for long-term-memory retrieval. Optimize it for matching a future standalone user query, not for retelling the conversation.
 - Write a self-contained semantic passage that reads like the answer or memory a future query should retrieve. Include the original user need and the useful answer, decision, result, constraint, preference, or unresolved state.
 - Put exact retrieval anchors in natural context: project and product names, people, technologies, API paths, commands, identifiers, model names, error text, feature names, and domain terminology. Preserve original spellings.
@@ -38,30 +39,45 @@ Archive rules:
 - Omit chronology, greetings, conversational filler, repeated explanations, and details that would not help choose this memory over another memory.
 - Preserve enough context for retrieval; do not force an overly short summary. Usually use 80-200 CJK characters or 50-120 words, but use the shortest passage that retains all discriminating retrieval information. This is not a hard limit.
 - Use only facts stated in the selected messages. Never invent causes, decisions, outcomes, aliases, preferences, or future work.
-- Example: "LearnLang 的聊天归档子 Agent 需要使用 Tool Calling 归档长期记忆，而不是直接返回整块 JSON。archive_conversation_range 接收摘要和起止消息 ID，区间必须构成候选消息的连续前缀；Agent 完成后统一事务保存 PostgreSQL，再写入 Milvus。可用于检索：归档 Agent 如何调用工具、JSON 归档如何改成区间调用。"
-- Treat rejected tool results as observations: correct the range using expected_start_message_id and call the tool again.
-- Do not finish with plain text until complete_conversation_archive has succeeded.`
+- Example: "LearnLang 的聊天归档子 Agent 需要使用 Tool Calling 归档长期记忆，而不是直接返回整块 JSON。archive_conversation_range 接收摘要和起止范围，区间必须构成候选消息的连续前缀；每个批次工具调用成功后保存 PostgreSQL，再写入 Milvus。可用于检索：归档 Agent 如何调用工具、JSON 归档如何改成区间调用。"
+- Treat rejected tool results as observations: correct the range using expected_start_id and call the tool again.
+- Always call archive_conversation_range; never return the archive result as plain text.`
 }
 
-func buildArchiveInput(candidates, reserved []models.Message) string {
+func buildArchiveInput(candidates []mappedArchiveMessage, reserved []models.Message) string {
 	var b strings.Builder
-	b.WriteString("Candidate messages that may be archived:\n")
-
-	writeMessages(&b, candidates)
-	b.WriteString("\nReserved latest messages for context only. Never archive these:\n")
-	writeMessages(&b, reserved)
+	b.WriteString("Candidate messages that may be archived. Use the displayed id values for archive ranges:\n")
+	writeMappedMessages(&b, candidates)
+	b.WriteString(fmt.Sprintf("\nReserved latest messages (%d). All of them must remain unarchived; additional candidate messages may also remain unarchived:\n", len(reserved)))
+	writeReservedMessages(&b, reserved)
 	return b.String()
 }
 
-func writeMessages(b *strings.Builder, messages []models.Message) {
+func writeMappedMessages(b *strings.Builder, messages []mappedArchiveMessage) {
 	if len(messages) == 0 {
 		b.WriteString("- none\n")
 		return
 	}
-
-	for _, message := range messages {
+	for _, mapped := range messages {
+		message := mapped.Message
 		b.WriteString(fmt.Sprintf("- id=%d time=%s role=%s text=%q translation=%q\n",
-			message.ID,
+			mapped.ID,
+			message.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			message.Role,
+			message.TextContent,
+			message.Translation,
+		))
+	}
+}
+
+func writeReservedMessages(b *strings.Builder, messages []models.Message) {
+	if len(messages) == 0 {
+		b.WriteString("- none\n")
+		return
+	}
+	for index, message := range messages {
+		b.WriteString(fmt.Sprintf("- reserved_position=%d time=%s role=%s text=%q translation=%q\n",
+			index+1,
 			message.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 			message.Role,
 			message.TextContent,

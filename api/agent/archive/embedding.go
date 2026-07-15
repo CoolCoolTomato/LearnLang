@@ -6,6 +6,7 @@ import (
 	"learnlang-api/agent/memory"
 	"learnlang-api/models"
 	"learnlang-api/services"
+	"log"
 )
 
 type archiveIndexerImpl struct {
@@ -28,15 +29,19 @@ func (i archiveIndexerImpl) Index(ctx context.Context, userID int64, settings *m
 	for _, archive := range archives {
 		embedding, err := createEmbedding(ctx, settings, archive.Summary)
 		if err != nil {
+			log.Printf("conversation archive embedding failed for archive %d: %v", archive.ID, err)
 			continue
 		}
 
 		embeddingID, err := i.memoryStore.InsertArchive(ctx, userID, archive.Summary, archive.MessageIDs, embedding)
 		if err != nil {
+			log.Printf("conversation archive vector insert failed for archive %d: %v", archive.ID, err)
 			continue
 		}
 
-		_ = i.archiveService.UpdateEmbeddingID(ctx, archive.ID, embeddingID)
+		if err := i.archiveService.UpdateEmbeddingID(ctx, archive.ID, embeddingID); err != nil {
+			log.Printf("conversation archive embedding ID update failed for archive %d: %v", archive.ID, err)
+		}
 	}
 }
 
