@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	defaultArchiveLookbackLimit = 120
-	defaultArchiveReserveCount  = 12
+	defaultArchiveBatchLimit          = 60
+	defaultArchiveTriggerCount        = 24
+	defaultArchiveMinimumReserveCount = 12
 )
 
 type ConversationArchiveService struct{}
@@ -33,28 +34,28 @@ type ArchiveSegmentInput struct {
 }
 
 func (s *ConversationArchiveService) GetArchiveWindow(ctx context.Context, userID int64) (*ArchiveWindow, error) {
-	latestEndID, err := s.latestArchiveEndMessageID(ctx, userID)
+	latestMessageID, err := s.latestArchiveMessageID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	var messages []models.Message
 	if err := database.DB.WithContext(ctx).
-		Where("user_id = ? AND id > ?", userID, latestEndID).
+		Where("user_id = ? AND id > ?", userID, latestMessageID).
 		Order("id ASC").
-		Limit(defaultArchiveLookbackLimit + defaultArchiveReserveCount).
+		Limit(defaultArchiveBatchLimit).
 		Find(&messages).Error; err != nil {
 		return nil, err
 	}
 
-	if len(messages) <= defaultArchiveReserveCount {
+	if len(messages) <= defaultArchiveTriggerCount {
 		return &ArchiveWindow{
 			Candidates: []models.Message{},
 			Reserved:   messages,
 		}, nil
 	}
 
-	cutoff := len(messages) - defaultArchiveReserveCount
+	cutoff := len(messages) - defaultArchiveMinimumReserveCount
 	return &ArchiveWindow{
 		Candidates: messages[:cutoff],
 		Reserved:   messages[cutoff:],
@@ -69,18 +70,21 @@ func (s *ConversationArchiveService) SaveArchiveSegments(ctx context.Context, us
 		return nil, err
 	}
 
-	latestEndID, err := s.latestArchiveEndMessageID(ctx, userID)
+	latestMessageID, err := s.latestArchiveMessageID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	var archives []models.ConversationArchive
 	err = database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		currentEndID, err := s.latestArchiveEndMessageIDWithTx(tx, userID)
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", userID).Error; err != nil {
+			return err
+		}
+		currentMessageID, err := s.latestArchiveMessageIDWithTx(tx, userID)
 		if err != nil {
 			return err
 		}
-		if currentEndID != latestEndID {
+		if currentMessageID != latestMessageID {
 			return fmt.Errorf("conversation archive changed while archiving")
 		}
 
@@ -89,12 +93,10 @@ func (s *ConversationArchiveService) SaveArchiveSegments(ctx context.Context, us
 			sort.Slice(messageIDs, func(i, j int) bool { return messageIDs[i] < messageIDs[j] })
 
 			archive := models.ConversationArchive{
-				UserID:         userID,
-				StartMessageID: messageIDs[0],
-				EndMessageID:   messageIDs[len(messageIDs)-1],
-				MessageIDs:     messageIDs,
-				Summary:        strings.TrimSpace(segment.Summary),
-				MessageCount:   len(messageIDs),
+				UserID:       userID,
+				MessageIDs:   messageIDs,
+				Summary:      strings.TrimSpace(segment.Summary),
+				MessageCount: len(messageIDs),
 			}
 			if err := tx.Create(&archive).Error; err != nil {
 				return err
@@ -124,22 +126,19 @@ func (s *ConversationArchiveService) UpdateEmbeddingID(ctx context.Context, arch
 		Update("embedding_id", embeddingID).Error
 }
 
-func (s *ConversationArchiveService) latestArchiveEndMessageID(ctx context.Context, userID int64) (int64, error) {
-	return s.latestArchiveEndMessageIDWithTx(database.DB.WithContext(ctx), userID)
+func (s *ConversationArchiveService) latestArchiveMessageID(ctx context.Context, userID int64) (int64, error) {
+	return s.latestArchiveMessageIDWithTx(database.DB.WithContext(ctx), userID)
 }
 
-func (s *ConversationArchiveService) latestArchiveEndMessageIDWithTx(tx *gorm.DB, userID int64) (int64, error) {
-	var archive models.ConversationArchive
-	err := tx.Where("user_id = ?", userID).
-		Order("end_message_id DESC").
-		First(&archive).Error
-	if err == nil {
-		return archive.EndMessageID, nil
-	}
-	if err == gorm.ErrRecordNotFound {
-		return 0, nil
-	}
-	return 0, err
+func (s *ConversationArchiveService) latestArchiveMessageIDWithTx(tx *gorm.DB, userID int64) (int64, error) {
+	var latestMessageID int64
+	err := tx.Raw(`
+		SELECT COALESCE(MAX((message_id.value)::bigint), 0)
+		FROM conversation_archives
+		CROSS JOIN LATERAL jsonb_array_elements_text(conversation_archives.message_ids) AS message_id(value)
+		WHERE conversation_archives.user_id = ?
+	`, userID).Scan(&latestMessageID).Error
+	return latestMessageID, err
 }
 
 func validateArchiveSegments(candidates []models.Message, segments []ArchiveSegmentInput) error {

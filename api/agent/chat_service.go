@@ -8,17 +8,20 @@ import (
 	"learnlang-api/config"
 	"learnlang-api/models"
 	"learnlang-api/services"
+	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 )
 
 type ChatService struct {
-	runtime     *services.ChatRuntimeService
-	memoryStore *memory.Store
-	agent       *Service
-	archiver    *archive.Service
+	runtime      *services.ChatRuntimeService
+	memoryStore  *memory.Store
+	agent        *Service
+	archiver     *archive.Service
+	archiveLocks sync.Map
 }
 
 func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service) *ChatService {
@@ -54,6 +57,7 @@ func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string
 		return nil, err
 	}
 
+	s.archiveConversation(userID)
 	go s.processAIResponse(userID, message)
 	return message, nil
 }
@@ -68,6 +72,7 @@ func (s *ChatService) ChatWithVoice(ctx context.Context, userID int64, userMessa
 		return nil, err
 	}
 
+	s.archiveConversation(userID)
 	go s.processAIResponse(userID, message)
 	return message, nil
 }
@@ -90,8 +95,6 @@ func (s *ChatService) processAIResponse(userID int64, userMessage *models.Messag
 	if result.WaitForNextMsg {
 		_ = s.runtime.ScheduleWaitMessage(ctx, userID, userMessage.ID, time.Now().Add(30*time.Second))
 	}
-
-	s.archiveConversation(userID)
 }
 
 func (s *ChatService) processInstantAIResponse(userID int64, messageID int64) {
@@ -136,7 +139,14 @@ func (s *ChatService) archiveConversation(userID int64) {
 	}
 
 	go func() {
-		_ = s.archiver.Run(context.Background(), userID)
+		lockValue, _ := s.archiveLocks.LoadOrStore(userID, &sync.Mutex{})
+		userLock := lockValue.(*sync.Mutex)
+		userLock.Lock()
+		defer userLock.Unlock()
+
+		if err := s.archiver.Run(context.Background(), userID); err != nil {
+			log.Printf("conversation archive failed for user %d: %v", userID, err)
+		}
 	}()
 }
 

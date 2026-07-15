@@ -18,6 +18,12 @@ func Migrate() error {
 	if err != nil {
 		return err
 	}
+	if err := DB.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_conversation_archives_message_ids_gin
+		ON conversation_archives USING GIN (message_ids jsonb_path_ops)
+	`).Error; err != nil {
+		return err
+	}
 	log.Println("Database migration completed")
 	return nil
 }
