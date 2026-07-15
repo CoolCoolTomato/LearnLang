@@ -53,10 +53,6 @@ func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string
 		return nil, err
 	}
 
-	if err := s.runtime.CancelPendingWaitMessages(userID); err != nil {
-		return nil, err
-	}
-
 	s.archiveConversation(userID)
 	go s.processAIResponse(userID, message)
 	return message, nil
@@ -65,10 +61,6 @@ func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string
 func (s *ChatService) ChatWithVoice(ctx context.Context, userID int64, userMessage string, voiceFileID *int64) (*models.Message, error) {
 	message, err := s.runtime.CreateUserMessage(ctx, userID, userMessage, voiceFileID, "voice")
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.runtime.CancelPendingWaitMessages(userID); err != nil {
 		return nil, err
 	}
 
@@ -81,56 +73,11 @@ func (s *ChatService) GetChatHistory(userID int64, beforeID *int64) ([]models.Me
 	return s.runtime.GetChatHistory(userID, beforeID)
 }
 
-func (s *ChatService) ProcessInstantAIResponse(userID int64, messageID int64) {
-	s.processInstantAIResponse(userID, messageID)
-}
-
 func (s *ChatService) processAIResponse(userID int64, userMessage *models.Message) {
 	ctx := context.Background()
-	result, err := s.runAgentChat(ctx, userID, userMessage.ID, userMessage.TextContent, false)
-	if err != nil {
+	if _, err := s.runAgentChat(ctx, userID, userMessage.ID, userMessage.TextContent); err != nil {
 		return
 	}
-
-	if result.WaitForNextMsg {
-		_ = s.runtime.ScheduleWaitMessage(ctx, userID, userMessage.ID, time.Now().Add(30*time.Second))
-	}
-}
-
-func (s *ChatService) processInstantAIResponse(userID int64, messageID int64) {
-	ctx := context.Background()
-	recentMessages, err := s.runtime.GetRecentConversation(userID)
-	if err != nil {
-		return
-	}
-
-	var target *models.Message
-	for i := range recentMessages {
-		msg := recentMessages[i]
-		if msg.ID == messageID && msg.Role == "user" {
-			target = &msg
-			break
-		}
-	}
-	if target == nil {
-		for i := len(recentMessages) - 1; i >= 0; i-- {
-			msg := recentMessages[i]
-			if msg.Role == "user" && msg.ID <= messageID {
-				target = &msg
-				break
-			}
-		}
-	}
-	if target == nil {
-		return
-	}
-
-	_, err = s.runAgentChat(ctx, userID, target.ID, target.TextContent, true)
-	if err != nil {
-		return
-	}
-
-	s.archiveConversation(userID)
 }
 
 func (s *ChatService) archiveConversation(userID int64) {
@@ -150,7 +97,7 @@ func (s *ChatService) archiveConversation(userID int64) {
 	}()
 }
 
-func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID int64, userInput string, instant bool) (*ChatResult, error) {
+func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID int64, userInput string) (*ChatResult, error) {
 	settings, err := s.runtime.UserSettings(userID)
 	if err != nil {
 		return nil, err
@@ -172,7 +119,6 @@ func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID
 		CurrentMessageID: currentMessageID,
 		UserInput:        userInput,
 		Settings:         agentSettings,
-		Instant:          instant,
 		CurrentTime:      time.Now().In(loc).Format(time.RFC3339),
 		Timezone:         timezone,
 	})

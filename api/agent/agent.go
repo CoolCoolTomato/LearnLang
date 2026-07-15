@@ -83,7 +83,6 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		req.Settings.TargetLanguage,
 		req.CurrentTime,
 		req.Timezone,
-		req.Instant,
 		shortTermMessages,
 		profile.Summary,
 	)

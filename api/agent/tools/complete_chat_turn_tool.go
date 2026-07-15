@@ -15,20 +15,19 @@ func (t CompleteChatTurnTool) Name() string {
 }
 
 func (t CompleteChatTurnTool) Description() string {
-	return `Finish the current chat turn after sending all reply sentences, or finish without replies when waiting for more user input. Call exactly once. Input must be JSON: {"detected_language":"language code","wait_for_next_message":false}.`
+	return `Finish the current chat turn after sending all reply sentences, or after scheduling a future message when no immediate reply is needed. Call exactly once. Input must be JSON: {"detected_language":"language code"}.`
 }
 
 func (t CompleteChatTurnTool) Call(ctx context.Context, input string) (string, error) {
 	var args struct {
 		DetectedLanguage string `json:"detected_language"`
-		WaitForNextMsg   bool   `json:"wait_for_next_message"`
 	}
 	if err := json.Unmarshal([]byte(input), &args); err != nil {
 		return "", fmt.Errorf("parse complete_chat_turn input: %w", err)
 	}
 
 	if t.State != nil {
-		t.State.Complete(args.DetectedLanguage, args.WaitForNextMsg)
+		t.State.Complete(args.DetectedLanguage)
 	}
 
 	return marshalToolResult(map[string]any{

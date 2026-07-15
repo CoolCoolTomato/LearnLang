@@ -111,11 +111,3 @@ func (s *ScheduledTaskService) UpdateTask(task *models.ScheduledTask, updates ma
 func (s *ScheduledTaskService) DeleteTask(id int64) error {
 	return database.DB.Delete(&models.ScheduledTask{}, id).Error
 }
-
-func (s *ScheduledTaskService) CancelUserPendingTasks(userID int64, functionName string) error {
-	return database.DB.Model(&models.ScheduledTask{}).
-		Where("user_id = ? AND function_name = ? AND status = ?", userID, functionName, "pending").
-		Updates(map[string]interface{}{
-			"status": "cancelled",
-		}).Error
-}

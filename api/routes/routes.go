@@ -50,7 +50,6 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	chatService := agent.NewChatService(chatRuntimeService, memoryStore, conversationArchiver)
 
 	scheduledTaskService.RegisterHandler("send_message", services.NewSendMessageHandler(chatRuntimeService))
-	scheduledTaskService.RegisterHandler("wait_message", services.NewWaitMessageHandler(chatService))
 
 	go scheduledTaskService.StartScheduler(context.Background())
 

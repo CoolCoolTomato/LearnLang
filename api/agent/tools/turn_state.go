@@ -3,7 +3,6 @@ package tools
 type ChatResult struct {
 	ReplySentences   []Sentence `json:"reply_sentences"`
 	DetectedLanguage string     `json:"detected_language"`
-	WaitForNextMsg   bool       `json:"wait_for_next_message"`
 	TokensUsed       int        `json:"-"`
 	MessageIDs       []int64    `json:"-"`
 }
@@ -39,7 +38,6 @@ func (s *TurnState) AddReply(original, translation string, messageID int64) {
 	s.result.MessageIDs = append(s.result.MessageIDs, messageID)
 }
 
-func (s *TurnState) Complete(detectedLanguage string, waitForNextMessage bool) {
+func (s *TurnState) Complete(detectedLanguage string) {
 	s.result.DetectedLanguage = detectedLanguage
-	s.result.WaitForNextMsg = waitForNextMessage
 }

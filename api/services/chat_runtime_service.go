@@ -256,24 +256,6 @@ func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64
 	return task.ID, nil
 }
 
-func (crs *ChatRuntimeService) ScheduleWaitMessage(ctx context.Context, userID int64, messageID int64, scheduledAt time.Time) error {
-	args := WaitMessageArgs{
-		UserID:    userID,
-		MessageID: messageID,
-	}
-	argsJSON, err := json.Marshal(args)
-	if err != nil {
-		return err
-	}
-
-	_, err = crs.scheduledTaskService.CreateTask(userID, "wait_message", string(argsJSON), scheduledAt)
-	return err
-}
-
-func (crs *ChatRuntimeService) CancelPendingWaitMessages(userID int64) error {
-	return crs.scheduledTaskService.CancelUserPendingTasks(userID, "wait_message")
-}
-
 func (crs *ChatRuntimeService) GetChatHistory(userID int64, beforeID *int64) ([]models.Message, error) {
 	var messages []models.Message
 	query := database.DB.Preload("VoiceFile").Where("user_id = ?", userID).Order("id DESC").Limit(20)
@@ -305,44 +287,6 @@ func (crs *ChatRuntimeService) GetShortTermMemory(ctx context.Context, userID, b
 		return nil, err
 	}
 	return messages, nil
-}
-
-func (crs *ChatRuntimeService) GetRecentConversation(userID int64) ([]models.Message, error) {
-	var allMessages []models.Message
-	err := database.DB.Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Limit(100).
-		Find(&allMessages).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(allMessages) == 0 {
-		return []models.Message{}, nil
-	}
-
-	var recentMessages []models.Message
-	const maxInterval = 60 * 60
-
-	for i := 0; i < len(allMessages); i++ {
-		if i == 0 {
-			recentMessages = append(recentMessages, allMessages[i])
-		} else {
-			interval := allMessages[i-1].CreatedAt.Unix() - allMessages[i].CreatedAt.Unix()
-			if interval <= maxInterval {
-				recentMessages = append(recentMessages, allMessages[i])
-			} else {
-				break
-			}
-		}
-	}
-
-	for i, j := 0, len(recentMessages)-1; i < j; i, j = i+1, j-1 {
-		recentMessages[i], recentMessages[j] = recentMessages[j], recentMessages[i]
-	}
-
-	return recentMessages, nil
 }
 
 func (crs *ChatRuntimeService) UserSettings(userID int64) (*models.UserSettings, error) {

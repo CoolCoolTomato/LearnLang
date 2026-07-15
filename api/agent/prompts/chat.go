@@ -13,7 +13,7 @@ const (
 	defaultTargetLanguage = "en-US"
 )
 
-func ChatSystemPrompt(nativeLanguage, targetLanguage, currentTime, timezone string, instant bool, shortTermMessages []models.Message, profileSummary string) string {
+func ChatSystemPrompt(nativeLanguage, targetLanguage, currentTime, timezone string, shortTermMessages []models.Message, profileSummary string) string {
 	nativeLang := normalizeLanguage(nativeLanguage, defaultNativeLanguage)
 	targetLang := normalizeLanguage(targetLanguage, defaultTargetLanguage)
 	shortTermMemory := formatShortTermMemory(shortTermMessages, timezone)
@@ -70,7 +70,7 @@ When you want to reply to the user:
 - Keep related sentences as separate array items inside the same tool call. Do not call send_chat_reply repeatedly for individual sentences.
 - If send_chat_reply returns rejected, correct the entire batch and call it again. After the batch is sent successfully, call complete_chat_turn exactly once.
 
-If no reply is needed, do not call send_chat_reply. Still call complete_chat_turn exactly once.
+If the turn only schedules a future message and no immediate reply is needed, do not call send_chat_reply. Still call complete_chat_turn exactly once.
 
 ## Time
 
@@ -83,8 +83,7 @@ If no reply is needed, do not call send_chat_reply. Still call complete_chat_tur
 complete_chat_turn input must be a JSON object only. No markdown, no comments, no extra fields.
 
 {
-  "detected_language": "language code",
-  "wait_for_next_message": false
+  "detected_language": "language code"
 }
 
 ## Reply Rules
@@ -127,17 +126,8 @@ To schedule a future message, call schedule_message with JSON:
 
 After scheduling, call complete_chat_turn exactly once. Do not encode scheduled messages inside complete_chat_turn.
 
-## Fragment Handling
-
-The user may send incomplete fragments. If the latest input clearly requires a next message to understand, call complete_chat_turn with wait_for_next_message=true, no reply, and no scheduled message.
-If the current run says immediate response is required, wait_for_next_message must be false.
-
 After calling complete_chat_turn, your final answer should be exactly: done
 `, nativeLang, targetLang, userProfile, shortTermMemory, currentTime, timezone))
-
-	if instant {
-		b.WriteString("\n\n## Immediate Override\n\nThis run must respond now. Set wait_for_next_message=false.\n")
-	}
 
 	return strings.TrimSpace(b.String())
 }

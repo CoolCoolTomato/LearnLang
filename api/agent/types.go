@@ -7,7 +7,6 @@ type ChatRequest struct {
 	CurrentMessageID int64
 	UserInput        string
 	Settings         UserSettings
-	Instant          bool
 	CurrentTime      string
 	Timezone         string
 }
