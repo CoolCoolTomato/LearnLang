@@ -21,7 +21,7 @@ func (t UserProfileSummaryTool) Name() string {
 }
 
 func (t UserProfileSummaryTool) Description() string {
-	return `Update the user's concise, evidence-based personal portrait. The full profile should contain only applicable sections: Basic facts; Interests and preferences; Goals and life context; Interaction impression. Explicit facts such as name, birthday, occupation, relationships, goals, favorites, and strong preferences are saved after one clear self-report. Interaction impressions require explicit self-description or consistent evidence from at least two separate interactions and must be phrased as tendencies, not facts. Input must be JSON: {"summary":"complete updated user profile"}. Preserve unchanged profile items, replace only explicitly corrected facts, deduplicate content, and never add conversation logs, temporary states, task details, or unsupported inferences.`
+	return `Update or clean the user's concise, evidence-based personal portrait. The full profile should contain only applicable sections: Basic facts; Interests and preferences; Goals and life context; Interaction impression. Explicit facts such as name, birthday, occupation, relationships, goals, favorites, and strong preferences are saved after one clear self-report. Convert relative dates to stable dates using the current user time; never save words such as today or tomorrow. Interaction impressions require explicit self-description or consistent evidence from at least two separate interactions and must be phrased as tendencies, not facts. Input must be JSON: {"summary":"complete updated user profile"}. Preserve valid unchanged facts, correct contradictions, deduplicate content, and remove conversation logs, greetings, queried topics, missing-information notes, temporary states, task details, and unsupported inferences from legacy profile content.`
 }
 
 func (t UserProfileSummaryTool) Call(ctx context.Context, input string) (string, error) {
@@ -35,6 +35,12 @@ func (t UserProfileSummaryTool) Call(ctx context.Context, input string) (string,
 	args.Summary = strings.TrimSpace(args.Summary)
 	if args.Summary == "" {
 		return "", fmt.Errorf("summary is required")
+	}
+	if reason := validateUserProfileSummary(args.Summary); reason != "" {
+		return marshalToolResult(map[string]any{
+			"status": "rejected",
+			"error":  reason,
+		})
 	}
 
 	var profile models.UserProfileSummary
@@ -61,4 +67,33 @@ func (t UserProfileSummaryTool) Call(ctx context.Context, input string) (string,
 		"status":  "updated",
 		"summary": profile.Summary,
 	})
+}
+
+func validateUserProfileSummary(summary string) string {
+	lower := strings.ToLower(summary)
+	relativeDates := []string{"今天", "明天", "昨天", "today", "tomorrow", "yesterday"}
+	for _, phrase := range relativeDates {
+		if strings.Contains(lower, phrase) {
+			return fmt.Sprintf("profile contains relative date %q; convert it to an absolute date using the current user time", phrase)
+		}
+	}
+
+	conversationLogPhrases := []string{
+		"用户询问过",
+		"用户提到过",
+		"用户讨论过",
+		"用户进行日常问候",
+		"进行了日常问候",
+		"具体类型未明确",
+		"尚不清楚",
+		"asked about",
+		"discussed",
+		"not specified",
+	}
+	for _, phrase := range conversationLogPhrases {
+		if strings.Contains(lower, phrase) {
+			return fmt.Sprintf("profile contains conversation-log or missing-information phrase %q; remove it or convert an explicit durable self-report into a person fact", phrase)
+		}
+	}
+	return ""
 }
