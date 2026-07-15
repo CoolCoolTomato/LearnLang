@@ -32,7 +32,7 @@ func NewService(cfg Config) *Service {
 }
 
 func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, error) {
-	shortTermMessages, err := s.runtime.GetShortTermMemory(ctx, req.UserID, req.CurrentMessageID, time.Now().Add(-24*time.Hour))
+	shortTermMessages, err := s.runtime.GetShortTermMemory(ctx, req.UserID, req.ContextBeforeMessageID, time.Now().Add(-24*time.Hour))
 	if err != nil {
 		return nil, err
 	}

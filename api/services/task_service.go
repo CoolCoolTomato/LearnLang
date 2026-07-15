@@ -23,7 +23,7 @@ func (s *ScheduledTaskService) RegisterHandler(functionName string, handler Task
 	s.handlers[functionName] = handler
 }
 
-func (s *ScheduledTaskService) CreateTask(userID int64, functionName string, args string, scheduledAt time.Time) (*models.ScheduledTask, error) {
+func (s *ScheduledTaskService) CreateTask(ctx context.Context, userID int64, functionName string, args string, scheduledAt time.Time) (*models.ScheduledTask, error) {
 	task := models.ScheduledTask{
 		UserID:       userID,
 		FunctionName: functionName,
@@ -31,7 +31,7 @@ func (s *ScheduledTaskService) CreateTask(userID int64, functionName string, arg
 		ScheduledAt:  scheduledAt,
 		Status:       "pending",
 	}
-	if err := database.DB.Create(&task).Error; err != nil {
+	if err := database.DB.WithContext(ctx).Create(&task).Error; err != nil {
 		return nil, err
 	}
 	return &task, nil

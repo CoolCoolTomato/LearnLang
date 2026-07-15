@@ -197,7 +197,7 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 }
 
 func (crs *ChatRuntimeService) CreateUserMessage(ctx context.Context, userID int64, text string, voiceFileID *int64, messageType string) (*models.Message, error) {
-	message, err := crs.messageService.CreateMessage(userID, "user", text, "", voiceFileID, messageType, 0)
+	message, err := crs.messageService.CreateMessage(ctx, userID, "user", text, "", voiceFileID, messageType, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -214,14 +214,21 @@ func (crs *ChatRuntimeService) CreateUserMessage(ctx context.Context, userID int
 }
 
 func (crs *ChatRuntimeService) SaveAssistantReply(ctx context.Context, userID int64, original, translation string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
 	settings, err := crs.userSettingsService.GetUserSettings(userID)
 	if err != nil {
 		return 0, err
 	}
 
 	voiceFileID, _ := crs.TextToSpeech(ctx, userID, original, settings)
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 
-	message, err := crs.messageService.CreateMessage(userID, "assistant", original, translation, voiceFileID, "text", 0)
+	message, err := crs.messageService.CreateMessage(ctx, userID, "assistant", original, translation, voiceFileID, "text", 0)
 	if err != nil {
 		return 0, err
 	}
@@ -238,6 +245,10 @@ func (crs *ChatRuntimeService) SaveAssistantReply(ctx context.Context, userID in
 }
 
 func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64, message, translation string, scheduledAt time.Time) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
 	args := SendMessageArgs{
 		UserID:      userID,
 		Message:     message,
@@ -248,7 +259,7 @@ func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64
 		return 0, err
 	}
 
-	task, err := crs.scheduledTaskService.CreateTask(userID, "send_message", string(argsJSON), scheduledAt)
+	task, err := crs.scheduledTaskService.CreateTask(ctx, userID, "send_message", string(argsJSON), scheduledAt)
 	if err != nil {
 		return 0, err
 	}
