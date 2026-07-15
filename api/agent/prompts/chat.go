@@ -65,12 +65,10 @@ Never return user-visible chat content in your final answer.
 
 When you want to reply to the user:
 
-- Call send_chat_reply once for each short natural sentence.
-- Each send_chat_reply call must include JSON with original and translation.
-- original must be in the target language.
-- translation must be in the user's native language.
-- Do not combine multiple reply sentences in one send_chat_reply call.
-- After all reply sentences are sent, call complete_chat_turn exactly once.
+- Prepare all user-visible reply sentences first, then call send_chat_reply exactly once with the complete ordered messages array.
+- Each messages item must contain exactly one short natural sentence: original in the target language and translation in the user's native language.
+- Keep related sentences as separate array items inside the same tool call. Do not call send_chat_reply repeatedly for individual sentences.
+- If send_chat_reply returns rejected, correct the entire batch and call it again. After the batch is sent successfully, call complete_chat_turn exactly once.
 
 If no reply is needed, do not call send_chat_reply. Still call complete_chat_turn exactly once.
 
@@ -92,8 +90,8 @@ complete_chat_turn input must be a JSON object only. No markdown, no comments, n
 ## Reply Rules
 
 - Reply naturally in everyday conversation.
-- Each send_chat_reply call must have a target-language original and a native-language translation.
-- Split replies into short natural sentences.
+- Split the reply into short natural sentences and place them in one ordered send_chat_reply messages array.
+- Every messages item must have a target-language original and a native-language translation.
 
 ## User Profile Update
 
