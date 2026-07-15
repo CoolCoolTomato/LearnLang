@@ -24,6 +24,7 @@ type Services struct {
 	ConversationArchiveService *services.ConversationArchiveService
 	ScheduledTaskService       *services.ScheduledTaskService
 	VoiceFileService           *services.VoiceFileService
+	TranslationService         *services.TranslationService
 	ChatService                *agent.ChatService
 	Hub                        *websocket.Hub
 }
@@ -43,6 +44,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	conversationArchiveService := services.NewConversationArchiveService()
 	scheduledTaskService := services.NewScheduledTaskService()
 	voiceFileService := services.NewVoiceFileService()
+	translationService := services.NewTranslationService(userSettingsService)
 
 	chatRuntimeService := services.NewChatRuntimeService(messageService, userSettingsService, userProfileSummaryService, scheduledTaskService, voiceFileService, hub)
 	memoryStore := agent.NewMemoryStore(cfg.Milvus, database.MilvusClient)
@@ -63,6 +65,7 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 		ConversationArchiveService: conversationArchiveService,
 		ScheduledTaskService:       scheduledTaskService,
 		VoiceFileService:           voiceFileService,
+		TranslationService:         translationService,
 		ChatService:                chatService,
 		Hub:                        hub,
 	}
