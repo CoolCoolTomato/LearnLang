@@ -1,4 +1,4 @@
-export type UserRole = 'user'
+export type UserRole = "user"
 
 export interface User {
   id: number
@@ -35,5 +35,13 @@ export interface RegisterResponse {
 }
 
 export interface LogoutResponse {
+  message: string
+}
+
+export interface ChangePasswordRequest {
+  new_password: string
+}
+
+export interface ChangePasswordResponse {
   message: string
 }

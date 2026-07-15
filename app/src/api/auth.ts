@@ -1,16 +1,20 @@
-import { http } from './request'
-import { TOKEN_KEY, USER_KEY } from './config'
+import { http } from "./request"
+import { TOKEN_KEY, USER_KEY } from "./config"
 import type {
   LoginRequest,
   LoginResponse,
   LogoutResponse,
+  ChangePasswordRequest,
+  ChangePasswordResponse,
   RegisterRequest,
   RegisterResponse,
   User,
-} from '@/types/auth'
+} from "@/types/auth"
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  const response = await http.post<LoginResponse>('/auth/login', data, { skipAuth: true })
+  const response = await http.post<LoginResponse>("/auth/login", data, {
+    skipAuth: true,
+  })
 
   if (response.token) {
     localStorage.setItem(TOKEN_KEY, response.token)
@@ -22,8 +26,10 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   return response
 }
 
-export async function register(data: RegisterRequest): Promise<RegisterResponse> {
-  const response = await http.post<RegisterResponse>('/auth/register', data, {
+export async function register(
+  data: RegisterRequest
+): Promise<RegisterResponse> {
+  const response = await http.post<RegisterResponse>("/auth/register", data, {
     skipAuth: true,
   })
 
@@ -39,12 +45,18 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
 
 export async function logout(): Promise<LogoutResponse> {
   try {
-    const response = await http.post<LogoutResponse>('/auth/logout')
+    const response = await http.post<LogoutResponse>("/auth/logout")
     return response
   } finally {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   }
+}
+
+export async function changePassword(
+  data: ChangePasswordRequest
+): Promise<ChangePasswordResponse> {
+  return http.post<ChangePasswordResponse>("/auth/change-password", data)
 }
 
 export function getCurrentUser(): User | null {

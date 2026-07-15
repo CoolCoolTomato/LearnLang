@@ -1,11 +1,27 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, ImagePlus, Save, Upload, UserRound } from "lucide-react"
+import {
+  ArrowLeft,
+  ImagePlus,
+  KeyRound,
+  Save,
+  Upload,
+  UserRound,
+} from "lucide-react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   getProfile,
   resolveAvatarUrl,
@@ -15,12 +31,23 @@ import {
 } from "@/api/profile"
 import { getErrorMessage } from "@/lib/error"
 import { useAuth } from "@/contexts/auth-context"
+import { changePassword } from "@/api/auth"
 
 interface ProfileFormData {
   username: string
   avatar_url: string
   email: string
   phone: string
+}
+
+interface PasswordFormData {
+  newPassword: string
+  confirmPassword: string
+}
+
+const emptyPasswordForm: PasswordFormData = {
+  newPassword: "",
+  confirmPassword: "",
 }
 
 export default function ProfilePage() {
@@ -31,6 +58,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
+  const [changingPassword, setChangingPassword] = React.useState(false)
+  const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false)
+  const [passwordError, setPasswordError] = React.useState("")
+  const [passwordForm, setPasswordForm] =
+    React.useState<PasswordFormData>(emptyPasswordForm)
   const [error, setError] = React.useState<string | null>(null)
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
   const [localAvatarPreview, setLocalAvatarPreview] = React.useState("")
@@ -87,7 +119,9 @@ export default function ProfilePage() {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error(t("profile.avatarTooLarge", "Image size must be less than 5MB"))
+      toast.error(
+        t("profile.avatarTooLarge", "Image size must be less than 5MB")
+      )
       return
     }
 
@@ -165,10 +199,58 @@ export default function ProfilePage() {
     }
   }
 
+  const resetPasswordForm = () => {
+    setPasswordForm(emptyPasswordForm)
+    setPasswordError("")
+  }
+
+  const handlePasswordDialogChange = (open: boolean) => {
+    if (changingPassword) return
+    setPasswordDialogOpen(open)
+    if (!open) resetPasswordForm()
+  }
+
+  const handleChangePassword = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault()
+    if (changingPassword) return
+
+    setPasswordError("")
+
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError(t("auth.fillAllFields"))
+      return
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError(t("auth.passwordMinLength"))
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError(t("auth.passwordMismatch"))
+      return
+    }
+    try {
+      setChangingPassword(true)
+      await changePassword({
+        new_password: passwordForm.newPassword,
+      })
+      setPasswordDialogOpen(false)
+      resetPasswordForm()
+      toast.success(t("profile.passwordChanged"))
+    } catch (err: unknown) {
+      setPasswordError(getErrorMessage(err, t("profile.passwordChangeFailed")))
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+        <div className="text-sm text-muted-foreground">
+          {t("common.loading")}
+        </div>
       </div>
     )
   }
@@ -209,17 +291,23 @@ export default function ProfilePage() {
                     {t("profile.title", "Profile")}
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                    {t("profile.description", "Manage your account information.")}
+                    {t(
+                      "profile.description",
+                      "Manage your account information."
+                    )}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-[220px_1fr] mt-1">
+            <div className="mt-1 grid gap-5 md:grid-cols-[220px_1fr]">
               <div className="rounded-xl border border-border/60 bg-background/80 p-4">
                 <div className="flex flex-col items-center gap-3">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src={avatarSrc} alt={formData.username || "User avatar"} />
+                    <AvatarImage
+                      src={avatarSrc}
+                      alt={formData.username || "User avatar"}
+                    />
                     <AvatarFallback>
                       <UserRound className="h-6 w-6" />
                     </AvatarFallback>
@@ -241,7 +329,10 @@ export default function ProfilePage() {
                     {t("profile.avatarTitle", "Profile Avatar")}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {t("profile.avatarDesc", "Upload and save a new avatar to update your account image.")}
+                    {t(
+                      "profile.avatarDesc",
+                      "Upload and save a new avatar to update your account image."
+                    )}
                   </div>
                 </div>
 
@@ -272,7 +363,9 @@ export default function ProfilePage() {
                     className="h-10 rounded-xl px-4"
                   >
                     <Upload className="mr-2 h-4 w-4" />
-                    {uploading ? t("common.saving", "Saving...") : t("profile.updateAvatar", "update Avatar")}
+                    {uploading
+                      ? t("common.saving", "Saving...")
+                      : t("profile.updateAvatar", "update Avatar")}
                   </Button>
 
                   {avatarFile ? (
@@ -290,8 +383,12 @@ export default function ProfilePage() {
 
                 {avatarFile ? (
                   <div className="rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">{avatarFile.name}</span>
-                    <span className="ml-2">{formatFileSize(avatarFile.size)}</span>
+                    <span className="font-medium text-foreground">
+                      {avatarFile.name}
+                    </span>
+                    <span className="ml-2">
+                      {formatFileSize(avatarFile.size)}
+                    </span>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-3 text-xs text-muted-foreground">
@@ -339,18 +436,124 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end mt-8">
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="h-11 rounded-xl px-5"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? t("common.saving", "Saving...") : t("common.save")}
-              </Button>
+          <div className="mt-8 flex items-center justify-end">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="h-11 rounded-xl px-5"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? t("common.saving", "Saving...") : t("common.save")}
+            </Button>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+                <KeyRound className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">
+                  {t("profile.accountSecurity")}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {t("profile.passwordDescription")}
+                </div>
+              </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 shrink-0 rounded-xl px-4"
+              onClick={() => setPasswordDialogOpen(true)}
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              {t("profile.changePassword")}
+            </Button>
+          </div>
         </div>
       </div>
+
+      <Dialog
+        open={passwordDialogOpen}
+        onOpenChange={handlePasswordDialogChange}
+      >
+        <DialogContent>
+          <form onSubmit={handleChangePassword} className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>{t("profile.changePassword")}</DialogTitle>
+              <DialogDescription>
+                {t("profile.passwordDialogDescription")}
+              </DialogDescription>
+            </DialogHeader>
+
+            {passwordError ? (
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {passwordError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-2">
+              <label htmlFor="new-password" className="text-sm font-medium">
+                {t("profile.newPassword")}
+              </label>
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.newPassword}
+                onChange={(event) =>
+                  setPasswordForm((prev) => ({
+                    ...prev,
+                    newPassword: event.target.value,
+                  }))
+                }
+                disabled={changingPassword}
+                autoFocus
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="confirm-new-password"
+                className="text-sm font-medium"
+              >
+                {t("profile.confirmNewPassword")}
+              </label>
+              <Input
+                id="confirm-new-password"
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.confirmPassword}
+                onChange={(event) =>
+                  setPasswordForm((prev) => ({
+                    ...prev,
+                    confirmPassword: event.target.value,
+                  }))
+                }
+                disabled={changingPassword}
+              />
+            </div>
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={changingPassword}
+                >
+                  {t("common.cancel")}
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword
+                  ? t("profile.changingPassword")
+                  : t("profile.confirmChange")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

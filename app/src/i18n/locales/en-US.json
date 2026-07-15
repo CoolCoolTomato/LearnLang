@@ -159,7 +159,17 @@
         "avatarTooLarge": "Image size must be less than 5MB",
         "selectAvatar": "Select Image",
         "updateAvatar": "Update Avatar",
-        "avatarEmpty": "No image selected"
+        "avatarEmpty": "No image selected",
+        "accountSecurity": "Account Security",
+        "passwordDescription": "Update your password regularly to protect your account.",
+        "changePassword": "Change Password",
+        "passwordDialogDescription": "Choose a new password with at least 6 characters.",
+        "newPassword": "New Password",
+        "confirmNewPassword": "Confirm New Password",
+        "confirmChange": "Change Password",
+        "changingPassword": "Changing...",
+        "passwordChanged": "Password changed successfully",
+        "passwordChangeFailed": "Failed to change password"
     },
     "user": {
         "loadFailed": "Failed to load"

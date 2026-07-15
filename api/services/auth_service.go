@@ -69,14 +69,10 @@ func (as *AuthService) Register(email, phone *string, username, password string)
 	return user, token, nil
 }
 
-func (as *AuthService) ChangePassword(userID int64, oldPassword, newPassword string) error {
+func (as *AuthService) ChangePassword(userID int64, newPassword string) error {
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		return utils.ErrUserNotFound
-	}
-
-	if !utils.CheckPassword(oldPassword, user.PasswordHash) {
-		return utils.ErrInvalidCredentials
 	}
 
 	hashedPassword, err := utils.HashPassword(newPassword)

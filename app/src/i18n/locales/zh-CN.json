@@ -165,6 +165,16 @@
         "avatarTooLarge": "图片大小不能超过 5MB",
         "selectAvatar": "选择图片",
         "updateAvatar": "更新头像",
-        "avatarEmpty": "尚未选择图片"
+        "avatarEmpty": "尚未选择图片",
+        "accountSecurity": "账号安全",
+        "passwordDescription": "定期更新密码以保护你的账号。",
+        "changePassword": "修改密码",
+        "passwordDialogDescription": "设置一个至少 6 位的新密码。",
+        "newPassword": "新密码",
+        "confirmNewPassword": "确认新密码",
+        "confirmChange": "确认修改",
+        "changingPassword": "修改中...",
+        "passwordChanged": "密码修改成功",
+        "passwordChangeFailed": "密码修改失败"
     }
 }

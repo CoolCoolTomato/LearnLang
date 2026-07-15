@@ -31,8 +31,7 @@ type RegisterRequest struct {
 }
 
 type ChangePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
 type LoginResponse struct {
@@ -95,13 +94,11 @@ func (ac *AuthController) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	err := ac.authService.ChangePassword(userID.(int64), req.OldPassword, req.NewPassword)
+	err := ac.authService.ChangePassword(userID.(int64), req.NewPassword)
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrUserNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		case errors.Is(err, utils.ErrInvalidCredentials):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Old password is incorrect"})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to change password"})
 		}
