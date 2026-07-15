@@ -51,6 +51,8 @@
         "yesterday": "Yesterday",
         "loadMessagesFailed": "Failed to load messages",
         "sendFailed": "Failed to send",
+        "translate": "Translate to target language",
+        "translateFailed": "Failed to translate",
         "wsConnectionFailed": "WebSocket connection failed",
         "headerSubtitle": "Your AI language partner",
         "connected": "Online",

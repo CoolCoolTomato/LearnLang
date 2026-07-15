@@ -51,6 +51,8 @@
         "yesterday": "昨天",
         "loadMessagesFailed": "加载消息失败",
         "sendFailed": "发送失败",
+        "translate": "翻译为目标语言",
+        "translateFailed": "翻译失败",
         "wsConnectionFailed": "WebSocket 连接失败",
         "headerSubtitle": "您的 AI 语言伙伴",
         "connected": "在线",
