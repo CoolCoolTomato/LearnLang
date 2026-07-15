@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"learnlang-api/database"
 	"learnlang-api/models"
 )
@@ -16,7 +17,7 @@ type MessageListResult struct {
 	Messages []models.Message
 }
 
-func (ms *MessageService) CreateMessage(userID int64, role, textContent, translation string, voiceFileID *int64, inputType string, tokenCount int) (*models.Message, error) {
+func (ms *MessageService) CreateMessage(ctx context.Context, userID int64, role, textContent, translation string, voiceFileID *int64, inputType string, tokenCount int) (*models.Message, error) {
 	message := models.Message{
 		UserID:      userID,
 		Role:        role,
@@ -27,7 +28,7 @@ func (ms *MessageService) CreateMessage(userID int64, role, textContent, transla
 		TokenCount:  tokenCount,
 	}
 
-	if err := database.DB.Create(&message).Error; err != nil {
+	if err := database.DB.WithContext(ctx).Create(&message).Error; err != nil {
 		return nil, err
 	}
 

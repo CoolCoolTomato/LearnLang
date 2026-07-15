@@ -21,6 +21,7 @@ type ChatService struct {
 	memoryStore  *memory.Store
 	agent        *Service
 	archiver     *archive.Service
+	agentRuns    agentRunCoordinator
 	archiveLocks sync.Map
 }
 
@@ -54,7 +55,7 @@ func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string
 	}
 
 	s.archiveConversation(userID)
-	go s.processAIResponse(userID, message)
+	s.restartAIResponse(userID, message)
 	return message, nil
 }
 
@@ -65,7 +66,7 @@ func (s *ChatService) ChatWithVoice(ctx context.Context, userID int64, userMessa
 	}
 
 	s.archiveConversation(userID)
-	go s.processAIResponse(userID, message)
+	s.restartAIResponse(userID, message)
 	return message, nil
 }
 
@@ -73,9 +74,22 @@ func (s *ChatService) GetChatHistory(userID int64, beforeID *int64) ([]models.Me
 	return s.runtime.GetChatHistory(userID, beforeID)
 }
 
-func (s *ChatService) processAIResponse(userID int64, userMessage *models.Message) {
-	ctx := context.Background()
-	if _, err := s.runAgentChat(ctx, userID, userMessage.ID, userMessage.TextContent); err != nil {
+func (s *ChatService) restartAIResponse(userID int64, userMessage *models.Message) {
+	s.agentRuns.Submit(userID, queuedUserInput{
+		MessageID: userMessage.ID,
+		Text:      userMessage.TextContent,
+	}, func(ctx context.Context, inputs []queuedUserInput) {
+		s.processAIResponse(ctx, userID, inputs)
+	})
+}
+
+func (s *ChatService) processAIResponse(ctx context.Context, userID int64, inputs []queuedUserInput) {
+	contextBeforeMessageID, userInput := mergeQueuedUserInputs(inputs)
+	if contextBeforeMessageID == 0 {
+		return
+	}
+
+	if _, err := s.runAgentChat(ctx, userID, contextBeforeMessageID, userInput); err != nil {
 		return
 	}
 }
@@ -97,7 +111,7 @@ func (s *ChatService) archiveConversation(userID int64) {
 	}()
 }
 
-func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID int64, userInput string) (*ChatResult, error) {
+func (s *ChatService) runAgentChat(ctx context.Context, userID, contextBeforeMessageID int64, userInput string) (*ChatResult, error) {
 	settings, err := s.runtime.UserSettings(userID)
 	if err != nil {
 		return nil, err
@@ -115,12 +129,12 @@ func (s *ChatService) runAgentChat(ctx context.Context, userID, currentMessageID
 
 	agentSettings := toAgentSettings(settings)
 	result, err := s.agent.RunChat(ctx, ChatRequest{
-		UserID:           userID,
-		CurrentMessageID: currentMessageID,
-		UserInput:        userInput,
-		Settings:         agentSettings,
-		CurrentTime:      time.Now().In(loc).Format(time.RFC3339),
-		Timezone:         timezone,
+		UserID:                 userID,
+		ContextBeforeMessageID: contextBeforeMessageID,
+		UserInput:              userInput,
+		Settings:               agentSettings,
+		CurrentTime:            time.Now().In(loc).Format(time.RFC3339),
+		Timezone:               timezone,
 	})
 	if err != nil {
 		return nil, err

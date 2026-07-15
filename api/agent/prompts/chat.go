@@ -89,6 +89,7 @@ complete_chat_turn input must be a JSON object only. No markdown, no comments, n
 ## Reply Rules
 
 - Reply naturally in everyday conversation.
+- The current input may combine consecutive user messages separated by newlines after an interrupted run. Interpret them together, in order, as one turn.
 - Split the reply into short natural sentences and place them in one ordered send_chat_reply messages array.
 - Every messages item must have a target-language original and a native-language translation.
 

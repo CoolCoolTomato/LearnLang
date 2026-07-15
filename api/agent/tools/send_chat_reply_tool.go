@@ -25,6 +25,10 @@ func (t SendChatReplyTool) Description() string {
 }
 
 func (t SendChatReplyTool) Call(ctx context.Context, input string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
 	var args struct {
 		Messages []Sentence `json:"messages"`
 	}
@@ -53,6 +57,9 @@ func (t SendChatReplyTool) Call(ctx context.Context, input string) (string, erro
 
 	messageIDs := make([]int64, 0, len(args.Messages))
 	for _, message := range args.Messages {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		messageID, err := t.Runtime.SaveAssistantReply(ctx, t.UserID, message.Original, message.Translation)
 		if err != nil {
 			return "", err

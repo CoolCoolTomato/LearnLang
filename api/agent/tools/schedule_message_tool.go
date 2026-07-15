@@ -23,6 +23,10 @@ func (t ScheduleMessageTool) Description() string {
 }
 
 func (t ScheduleMessageTool) Call(ctx context.Context, input string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
 	var args struct {
 		Message     string `json:"message"`
 		Translation string `json:"translation"`
