@@ -22,6 +22,11 @@ const SIDEBAR_STORAGE_KEY = "learnlang_sidebar_open"
 
 const navigation = [
   { path: "/chat", label: "navigation.chat", icon: MessageCircle },
+  {
+    path: "/vocabulary",
+    label: "navigation.vocabulary",
+    icon: BookOpenText,
+  },
   { path: "/profile", label: "profile.title", icon: UserRound },
   { path: "/setting", label: "settings.title", icon: Settings },
 ]
@@ -79,9 +84,11 @@ export function AppLayout() {
   const pageTitle =
     location.pathname === "/profile"
       ? t("profile.title", "Profile")
-      : location.pathname === "/setting"
-        ? t("settings.title", "Settings")
-        : "LearnLang"
+      : location.pathname === "/vocabulary"
+        ? t("vocabulary.title", "Vocabulary")
+        : location.pathname === "/setting"
+          ? t("settings.title", "Settings")
+          : "LearnLang"
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-sidebar">
@@ -217,35 +224,7 @@ function AppSidebar({
           className="flex flex-col gap-1"
           aria-label={t("navigation.main", "Main navigation")}
         >
-          <SidebarLink
-            item={navigation[0]}
-            expanded={expanded}
-            onNavigate={mobile ? closeMobile : undefined}
-          />
-          <button
-            type="button"
-            disabled
-            title={
-              !expanded ? t("navigation.vocabulary", "Vocabulary") : undefined
-            }
-            className={cn(
-              "flex h-8 w-full items-center overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground/45",
-              expanded ? "gap-2" : "justify-center"
-            )}
-          >
-            <BookOpenText className="size-4 shrink-0" />
-            {expanded ? (
-              <>
-                <span className="truncate">
-                  {t("navigation.vocabulary", "Vocabulary")}
-                </span>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {t("navigation.comingSoon", "Soon")}
-                </span>
-              </>
-            ) : null}
-          </button>
-          {navigation.slice(1).map((item) => (
+          {navigation.map((item) => (
             <SidebarLink
               key={item.path}
               item={item}
