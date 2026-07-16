@@ -25,13 +25,14 @@ type ChatService struct {
 	archiveLocks sync.Map
 }
 
-func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service) *ChatService {
+func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service, vocabularyService *services.VocabularyService) *ChatService {
 	return &ChatService{
 		runtime:     runtime,
 		memoryStore: memoryStore,
 		agent: NewService(Config{
-			MemoryStore: memoryStore,
-			Runtime:     runtime,
+			MemoryStore:       memoryStore,
+			Runtime:           runtime,
+			VocabularyService: vocabularyService,
 		}),
 		archiver: archiver,
 	}

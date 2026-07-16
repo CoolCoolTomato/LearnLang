@@ -15,19 +15,22 @@ import (
 )
 
 type Config struct {
-	MemoryStore *memory.Store
-	Runtime     *services.ChatRuntimeService
+	MemoryStore       *memory.Store
+	Runtime           *services.ChatRuntimeService
+	VocabularyService *services.VocabularyService
 }
 
 type Service struct {
-	memoryStore *memory.Store
-	runtime     *services.ChatRuntimeService
+	memoryStore       *memory.Store
+	runtime           *services.ChatRuntimeService
+	vocabularyService *services.VocabularyService
 }
 
 func NewService(cfg Config) *Service {
 	return &Service{
-		memoryStore: cfg.MemoryStore,
-		runtime:     cfg.Runtime,
+		memoryStore:       cfg.MemoryStore,
+		runtime:           cfg.Runtime,
+		vocabularyService: cfg.VocabularyService,
 	}
 }
 
@@ -76,6 +79,18 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			UserID:   req.UserID,
 			Timezone: req.Timezone,
 			Runtime:  s.runtime,
+		},
+		agenttools.RandomNewVocabularyWordTool{
+			UserID:         req.UserID,
+			TargetLanguage: req.Settings.TargetLanguage,
+			NativeLanguage: req.Settings.NativeLanguage,
+			Vocabulary:     s.vocabularyService,
+		},
+		agenttools.RandomOldVocabularyWordTool{
+			UserID:         req.UserID,
+			TargetLanguage: req.Settings.TargetLanguage,
+			NativeLanguage: req.Settings.NativeLanguage,
+			Vocabulary:     s.vocabularyService,
 		},
 	}
 
