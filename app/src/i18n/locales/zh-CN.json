@@ -62,7 +62,9 @@
         "vocabularyLookupFailed": "词库查询失败",
         "vocabularyDetails": "共匹配 {{count}} 个词条",
         "word": "单词",
-        "pronunciation": "读音"
+        "pronunciation": "读音",
+        "showAllRelatedPhrases": "查看全部 {{count}} 个短语",
+        "collapseRelatedPhrases": "收起短语"
     },
     "navigation": {
         "main": "主要导航",

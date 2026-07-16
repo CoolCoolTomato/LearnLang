@@ -1,5 +1,5 @@
-import type { ReactNode } from "react"
-import { Volume2 } from "lucide-react"
+import { useState, type ReactNode } from "react"
+import { ChevronDown, ChevronUp, Volume2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -9,12 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type {
   VocabularyLookupEntry,
   VocabularyLookupMatch,
 } from "@/types/vocabulary"
+
+const RELATED_PHRASE_PREVIEW_COUNT = 10
 
 interface VocabularyEntryDialogProps {
   match: VocabularyLookupMatch | null
@@ -30,7 +33,7 @@ export function VocabularyEntryDialog({
 
   return (
     <Dialog open={match !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{match?.text}</DialogTitle>
           <DialogDescription>
@@ -39,11 +42,14 @@ export function VocabularyEntryDialog({
         </DialogHeader>
 
         {entries.length === 1 ? (
-          <ScrollArea className="max-h-[65svh] pr-3">
+          <ScrollArea className="h-full max-h-[65svh] pr-3">
             <VocabularyEntryContent lookupEntry={entries[0]} />
           </ScrollArea>
         ) : entries.length > 1 ? (
-          <Tabs defaultValue={String(entries[0].entry.id)}>
+          <Tabs
+            defaultValue={String(entries[0].entry.id)}
+            className="min-h-0 overflow-hidden"
+          >
             <ScrollArea scrollbars="horizontal" className="h-9 w-full">
               <TabsList className="w-max">
                 {entries.map((item) => (
@@ -57,8 +63,12 @@ export function VocabularyEntryDialog({
               </TabsList>
             </ScrollArea>
             {entries.map((item) => (
-              <TabsContent key={item.entry.id} value={String(item.entry.id)}>
-                <ScrollArea className="max-h-[58svh] pr-3">
+              <TabsContent
+                key={item.entry.id}
+                value={String(item.entry.id)}
+                className="min-h-0 overflow-hidden"
+              >
+                <ScrollArea className="h-full max-h-[58svh] pr-3">
                   <VocabularyEntryContent lookupEntry={item} />
                 </ScrollArea>
               </TabsContent>
@@ -82,6 +92,10 @@ function VocabularyEntryContent({
   const examples = entry.examples ?? []
   const relations = entry.relations ?? []
   const tags = entry.tags ?? []
+  const [showAllRelations, setShowAllRelations] = useState(false)
+  const visibleRelations = showAllRelations
+    ? relations
+    : relations.slice(0, RELATED_PHRASE_PREVIEW_COUNT)
 
   const playAudio = (audioURL: string) => {
     void new Audio(audioURL).play().catch(() => {
@@ -149,19 +163,30 @@ function VocabularyEntryContent({
 
       {relations.length > 0 ? (
         <DetailSection title={t("vocabulary.relatedPhrases")}>
-          <div className="space-y-2">
-            {relations.map((relation) => (
-              <div key={relation.id}>
-                <span className="font-medium">
-                  {relation.related_entry?.target_text}
-                </span>
-                {relation.related_entry?.meanings?.[0]?.native_text ? (
-                  <span className="ml-2 text-muted-foreground">
-                    {relation.related_entry.meanings[0].native_text}
-                  </span>
-                ) : null}
-              </div>
-            ))}
+          <div className="space-y-2.5">
+            {showAllRelations ? (
+              <ScrollArea className="h-52 overscroll-contain pr-3">
+                <RelatedPhraseList relations={visibleRelations} />
+              </ScrollArea>
+            ) : (
+              <RelatedPhraseList relations={visibleRelations} />
+            )}
+            {relations.length > RELATED_PHRASE_PREVIEW_COUNT ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-0 text-muted-foreground"
+                onClick={() => setShowAllRelations((current) => !current)}
+              >
+                {showAllRelations ? <ChevronUp /> : <ChevronDown />}
+                {showAllRelations
+                  ? t("chat.collapseRelatedPhrases")
+                  : t("chat.showAllRelatedPhrases", {
+                      count: relations.length,
+                    })}
+              </Button>
+            ) : null}
           </div>
         </DetailSection>
       ) : null}
@@ -205,6 +230,29 @@ function VocabularyEntryContent({
           </p>
         </DetailSection>
       ) : null}
+    </div>
+  )
+}
+
+function RelatedPhraseList({
+  relations,
+}: {
+  relations: VocabularyLookupEntry["entry"]["relations"]
+}) {
+  return (
+    <div className="space-y-2">
+      {(relations ?? []).map((relation) => (
+        <div key={relation.id} className="min-w-0 break-words">
+          <span className="font-medium">
+            {relation.related_entry?.target_text}
+          </span>
+          {relation.related_entry?.meanings?.[0]?.native_text ? (
+            <span className="ml-2 text-muted-foreground">
+              {relation.related_entry.meanings[0].native_text}
+            </span>
+          ) : null}
+        </div>
+      ))}
     </div>
   )
 }

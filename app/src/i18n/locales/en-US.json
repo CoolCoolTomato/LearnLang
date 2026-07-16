@@ -62,7 +62,9 @@
         "vocabularyLookupFailed": "Failed to query vocabulary",
         "vocabularyDetails": "{{count}} matching vocabulary entries",
         "word": "Word",
-        "pronunciation": "Pronunciation"
+        "pronunciation": "Pronunciation",
+        "showAllRelatedPhrases": "Show all {{count}} phrases",
+        "collapseRelatedPhrases": "Show fewer phrases"
     },
     "navigation": {
         "main": "Main navigation",
