@@ -166,8 +166,8 @@ export function ImportDialog({
               htmlFor="vocabulary-file"
               className="flex min-h-40 cursor-pointer flex-col items-center justify-center px-6 py-8 text-center"
             >
-              <span className="mb-3 flex size-11 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm">
-                <FileJson className="size-5" />
+              <span className="mb-3 flex size-11 items-center justify-center">
+                <FileJson className="size-8" />
               </span>
               {file ? (
                 <>
