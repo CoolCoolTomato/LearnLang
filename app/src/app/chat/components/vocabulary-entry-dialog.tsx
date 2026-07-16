@@ -164,14 +164,8 @@ function VocabularyEntryContent({
       {relations.length > 0 ? (
         <DetailSection title={t("vocabulary.relatedPhrases")}>
           <div className="space-y-2.5">
-            {showAllRelations ? (
-              <ScrollArea className="h-52 overscroll-contain pr-3">
-                <RelatedPhraseList relations={visibleRelations} />
-              </ScrollArea>
-            ) : (
-              <RelatedPhraseList relations={visibleRelations} />
-            )}
-            {relations.length > RELATED_PHRASE_PREVIEW_COUNT ? (
+            {showAllRelations &&
+            relations.length > RELATED_PHRASE_PREVIEW_COUNT ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -179,12 +173,24 @@ function VocabularyEntryContent({
                 className="px-0 text-muted-foreground"
                 onClick={() => setShowAllRelations((current) => !current)}
               >
-                {showAllRelations ? <ChevronUp /> : <ChevronDown />}
-                {showAllRelations
-                  ? t("chat.collapseRelatedPhrases")
-                  : t("chat.showAllRelatedPhrases", {
-                      count: relations.length,
-                    })}
+                <ChevronUp />
+                {t("chat.collapseRelatedPhrases")}
+              </Button>
+            ) : null}
+            <RelatedPhraseList relations={visibleRelations} />
+            {!showAllRelations &&
+            relations.length > RELATED_PHRASE_PREVIEW_COUNT ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-0 text-muted-foreground"
+                onClick={() => setShowAllRelations(true)}
+              >
+                <ChevronDown />
+                {t("chat.showAllRelatedPhrases", {
+                  count: relations.length,
+                })}
               </Button>
             ) : null}
           </div>
