@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxVocabularyImportEntries = 10000
+	maxVocabularyImportEntries = 100000
 	vocabularyAdvisoryLockBase = int64(740000000000000000)
 )
 
