@@ -123,3 +123,22 @@ export interface VocabularyImportResult {
 export interface VocabularyClearResult {
   deleted: number
 }
+
+export interface VocabularyLookupEntry {
+  vocabulary_id: number
+  vocabulary_name: string
+  entry: VocabularyEntry
+}
+
+export interface VocabularyLookupMatch {
+  start: number
+  end: number
+  text: string
+  entries: VocabularyLookupEntry[]
+}
+
+export interface VocabularyLookupResult {
+  message_id: number
+  text: string
+  matches: VocabularyLookupMatch[]
+}

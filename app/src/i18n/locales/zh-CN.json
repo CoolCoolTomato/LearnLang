@@ -56,7 +56,13 @@
         "wsConnectionFailed": "WebSocket 连接失败",
         "headerSubtitle": "您的 AI 语言伙伴",
         "connected": "在线",
-        "disconnected": "离线"
+        "disconnected": "离线",
+        "lookupVocabulary": "查询词库",
+        "vocabularyNoMatches": "未找到匹配的单词或短语",
+        "vocabularyLookupFailed": "词库查询失败",
+        "vocabularyDetails": "共匹配 {{count}} 个词条",
+        "word": "单词",
+        "pronunciation": "读音"
     },
     "navigation": {
         "main": "主要导航",

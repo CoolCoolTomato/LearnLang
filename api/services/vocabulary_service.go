@@ -21,6 +21,7 @@ var (
 	ErrVocabularyInvalidImport    = errors.New("invalid vocabulary import")
 	ErrVocabularyInvalidInput     = errors.New("invalid vocabulary input")
 	ErrVocabularyNotFound         = errors.New("vocabulary not found")
+	ErrVocabularyMessageNotFound  = errors.New("message not found")
 	ErrVocabularyNameConflict     = errors.New("a vocabulary with this name already exists")
 	ErrVocabularyLanguageRequired = errors.New("target language and native language are required")
 	ErrVocabularyDefaultRequired  = errors.New("a default vocabulary is required")

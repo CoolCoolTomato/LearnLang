@@ -14,6 +14,10 @@ type VocabularyController struct {
 	vocabularyService *services.VocabularyService
 }
 
+type vocabularyLookupRequest struct {
+	MessageID int64 `json:"message_id"`
+}
+
 func NewVocabularyController(vocabularyService *services.VocabularyService) *VocabularyController {
 	return &VocabularyController{vocabularyService: vocabularyService}
 }
@@ -123,6 +127,21 @@ func (vc *VocabularyController) GetEntries(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (vc *VocabularyController) LookupMessage(c *gin.Context) {
+	var input vocabularyLookupRequest
+	if err := c.ShouldBindJSON(&input); err != nil || input.MessageID < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid message_id is required"})
+		return
+	}
+
+	result, err := vc.vocabularyService.LookupMessage(c.Request.Context(), c.GetInt64("user_id"), input.MessageID)
+	if err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (vc *VocabularyController) ClearEntries(c *gin.Context) {
 	vocabularyID, ok := vocabularyIDParam(c)
 	if !ok {
@@ -138,7 +157,8 @@ func (vc *VocabularyController) ClearEntries(c *gin.Context) {
 
 func (vc *VocabularyController) writeError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, services.ErrVocabularyNotFound):
+	case errors.Is(err, services.ErrVocabularyNotFound),
+		errors.Is(err, services.ErrVocabularyMessageNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, services.ErrVocabularyNameConflict):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
