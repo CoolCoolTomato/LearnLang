@@ -57,7 +57,7 @@ import type {
   VocabularySummary,
 } from "@/types/vocabulary"
 
-const DEFAULT_PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = 5
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
 const MAX_IMPORT_FILE_SIZE = 20 * 1024 * 1024
 
