@@ -72,8 +72,12 @@ func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *uti
 	vocabularies := userGroup.Group("/vocabularies")
 	vocabularies.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
 	{
-		vocabularies.POST("/import", vocabularyController.Import)
-		vocabularies.GET("", vocabularyController.Get)
-		vocabularies.DELETE("", vocabularyController.Clear)
+		vocabularies.GET("", vocabularyController.List)
+		vocabularies.POST("", vocabularyController.Create)
+		vocabularies.PUT("/:id", vocabularyController.Update)
+		vocabularies.DELETE("/:id", vocabularyController.Delete)
+		vocabularies.GET("/:id/entries", vocabularyController.GetEntries)
+		vocabularies.DELETE("/:id/entries", vocabularyController.ClearEntries)
+		vocabularies.POST("/:id/import", vocabularyController.Import)
 	}
 }

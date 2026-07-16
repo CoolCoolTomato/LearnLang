@@ -4,8 +4,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Eraser,
   FileJson,
+  LibraryBig,
   Languages,
+  Pencil,
+  Plus,
+  Star,
   Trash2,
   Upload,
   Volume2,
@@ -14,8 +19,12 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   clearVocabulary,
-  getVocabulary,
+  createVocabulary,
+  deleteVocabulary,
+  getVocabularyEntries,
   importVocabulary,
+  listVocabularies,
+  updateVocabulary,
 } from "@/api/vocabulary"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,9 +41,11 @@ import { Label } from "@/components/ui/label"
 import { getErrorMessage } from "@/lib/error"
 import { cn } from "@/lib/utils"
 import type {
+  Vocabulary,
   VocabularyEntry,
   VocabularyImportResult,
   VocabularyPage as VocabularyPageData,
+  VocabularySummary,
 } from "@/types/vocabulary"
 
 const PAGE_SIZE = 20
@@ -42,37 +53,106 @@ const MAX_IMPORT_FILE_SIZE = 20 * 1024 * 1024
 
 export default function VocabularyPage() {
   const { t } = useTranslation()
+  const [vocabularies, setVocabularies] = React.useState<VocabularySummary[]>(
+    []
+  )
+  const [selectedID, setSelectedID] = React.useState<number | null>(null)
   const [page, setPage] = React.useState(1)
   const [data, setData] = React.useState<VocabularyPageData | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const [listLoading, setListLoading] = React.useState(true)
+  const [entriesLoading, setEntriesLoading] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
   const [importOpen, setImportOpen] = React.useState(false)
   const [clearOpen, setClearOpen] = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [clearing, setClearing] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
+  const [entriesVersion, setEntriesVersion] = React.useState(0)
+  const entriesRequest = React.useRef(0)
 
-  const loadVocabulary = React.useCallback(async () => {
+  const loadVocabularies = React.useCallback(
+    async (preferredID?: number) => {
+      try {
+        setListLoading(true)
+        const result = await listVocabularies()
+        const items = result.data ?? []
+        setVocabularies(items)
+        setSelectedID((current) => {
+          const requested = preferredID ?? current
+          if (requested && items.some((item) => item.id === requested)) {
+            return requested
+          }
+          return (
+            items.find((item) => item.is_default)?.id ?? items[0]?.id ?? null
+          )
+        })
+        setError("")
+      } catch (listError: unknown) {
+        setError(
+          getErrorMessage(listError, t("vocabulary.loadFailed", "Load failed"))
+        )
+      } finally {
+        setListLoading(false)
+      }
+    },
+    [t]
+  )
+
+  React.useEffect(() => {
+    void loadVocabularies()
+  }, [loadVocabularies])
+
+  const loadEntries = React.useCallback(async () => {
+    const request = ++entriesRequest.current
+    if (!selectedID) {
+      setData(null)
+      setEntriesLoading(false)
+      return
+    }
     try {
-      setLoading(true)
-      const result = await getVocabulary(page, PAGE_SIZE)
+      setEntriesLoading(true)
+      const result = await getVocabularyEntries(selectedID, page, PAGE_SIZE)
+      if (request !== entriesRequest.current) return
       setData(result)
       setError("")
     } catch (loadError: unknown) {
+      if (request !== entriesRequest.current) return
       setError(
         getErrorMessage(loadError, t("vocabulary.loadFailed", "Load failed"))
       )
     } finally {
-      setLoading(false)
+      if (request === entriesRequest.current) {
+        setEntriesLoading(false)
+      }
     }
-  }, [page, t])
+  }, [page, selectedID, t])
 
   React.useEffect(() => {
-    void loadVocabulary()
-  }, [loadVocabulary])
+    void entriesVersion
+    void loadEntries()
+  }, [entriesVersion, loadEntries])
+
+  React.useEffect(() => {
+    setExpanded(new Set())
+    setPage(1)
+    setData(null)
+  }, [selectedID])
 
   React.useEffect(() => {
     setExpanded(new Set())
   }, [page])
+
+  const selected = vocabularies.find((item) => item.id === selectedID) ?? null
+
+  const handleVocabularySaved = async (vocabulary: Vocabulary) => {
+    setCreateOpen(false)
+    setEditOpen(false)
+    setPage(1)
+    await loadVocabularies(vocabulary.id)
+  }
 
   const handleImported = async (result: VocabularyImportResult) => {
     setImportOpen(false)
@@ -82,24 +162,24 @@ export default function VocabularyPage() {
         updated: result.entries_updated,
       })
     )
-    if (page !== 1) {
-      setPage(1)
-      return
-    }
-    await loadVocabulary()
+    setPage(1)
+    setData(null)
+    setEntriesVersion((current) => current + 1)
+    await loadVocabularies(result.vocabulary.id)
   }
 
   const handleClear = async () => {
+    if (!selectedID) return
     try {
       setClearing(true)
-      const result = await clearVocabulary()
+      const result = await clearVocabulary(selectedID)
       setClearOpen(false)
       setPage(1)
+      setData(null)
+      setEntriesVersion((current) => current + 1)
       setExpanded(new Set())
       toast.success(t("vocabulary.clearSuccess", { count: result.deleted }))
-      if (page === 1) {
-        await loadVocabulary()
-      }
+      await loadVocabularies(selectedID)
     } catch (clearError: unknown) {
       toast.error(
         getErrorMessage(
@@ -109,6 +189,23 @@ export default function VocabularyPage() {
       )
     } finally {
       setClearing(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedID) return
+    try {
+      setDeleting(true)
+      await deleteVocabulary(selectedID)
+      setDeleteOpen(false)
+      setData(null)
+      setPage(1)
+      await loadVocabularies()
+      toast.success(t("vocabulary.deleteSuccess"))
+    } catch (deleteError: unknown) {
+      toast.error(getErrorMessage(deleteError, t("vocabulary.deleteFailed")))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -128,103 +225,198 @@ export default function VocabularyPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="min-h-full bg-background">
-      <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
-        <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <BookOpenText className="size-5 text-muted-foreground" />
-              <h2 className="truncate text-xl font-semibold">
-                {data?.vocabulary?.name || t("vocabulary.title", "Vocabulary")}
-              </h2>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              {data?.vocabulary ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Languages className="size-3.5" />
-                  {data.vocabulary.target_language}
-                  <span aria-hidden="true">→</span>
-                  {data.vocabulary.native_language}
-                </span>
-              ) : null}
-              <span>{t("vocabulary.entryCount", { count: total })}</span>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setClearOpen(true)}
-              disabled={total === 0}
-            >
-              <Trash2 />
-              {t("vocabulary.clear", "Clear")}
-            </Button>
-            <Button onClick={() => setImportOpen(true)}>
-              <Upload />
-              {t("vocabulary.import", "Import")}
-            </Button>
-          </div>
-        </section>
-
-        {loading && !data ? (
-          <LoadingState label={t("common.loading", "Loading...")} />
-        ) : error ? (
-          <ErrorState
-            message={error}
-            retryLabel={t("vocabulary.retry", "Retry")}
-            onRetry={() => void loadVocabulary()}
-          />
-        ) : total === 0 ? (
-          <EmptyState
-            title={t("vocabulary.emptyTitle", "No vocabulary yet")}
-            description={t(
-              "vocabulary.emptyDescription",
-              "Import a JSON vocabulary to get started."
-            )}
-            importLabel={t("vocabulary.import", "Import")}
-            onImport={() => setImportOpen(true)}
-          />
-        ) : (
-          <>
-            <div className="mt-5 overflow-hidden rounded-lg border border-border/70">
-              <div className="hidden h-9 grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.6fr)_120px_40px] items-center gap-4 border-b bg-muted/40 px-4 text-xs font-medium text-muted-foreground md:grid">
-                <span>{t("vocabulary.targetText", "Target language")}</span>
-                <span>{t("vocabulary.meaning", "Native meaning")}</span>
-                <span>{t("vocabulary.status", "Status")}</span>
-                <span className="sr-only">
-                  {t("vocabulary.details", "Details")}
-                </span>
+    <div className="grid min-h-full bg-background lg:grid-cols-[minmax(0,1fr)_280px]">
+      <main className="order-last min-w-0 lg:order-first">
+        <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
+          {selected ? (
+            <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <BookOpenText className="size-5 text-muted-foreground" />
+                  <h2 className="truncate text-xl font-semibold">
+                    {selected.name}
+                  </h2>
+                  {selected.is_default ? (
+                    <Star className="size-4 fill-current text-amber-500" />
+                  ) : null}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Languages className="size-3.5" />
+                    {selected.target_language}
+                    <span aria-hidden="true">→</span>
+                    {selected.native_language}
+                  </span>
+                  <span>{t("vocabulary.entryCount", { count: total })}</span>
+                </div>
               </div>
-              <div className="divide-y divide-border/70">
-                {data?.data.map((entry) => (
-                  <VocabularyRow
-                    key={entry.id}
-                    entry={entry}
-                    expanded={expanded.has(entry.id)}
-                    onToggle={() => toggleExpanded(entry.id)}
-                  />
-                ))}
-              </div>
-            </div>
 
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              total={total}
-              onPrevious={() => setPage((current) => Math.max(1, current - 1))}
-              onNext={() =>
-                setPage((current) => Math.min(totalPages, current + 1))
-              }
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setEditOpen(true)}
+                  title={t("vocabulary.edit")}
+                >
+                  <Pencil />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setClearOpen(true)}
+                  disabled={total === 0}
+                  title={t("vocabulary.clear")}
+                >
+                  <Eraser />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => setDeleteOpen(true)}
+                  title={t("vocabulary.delete")}
+                >
+                  <Trash2 />
+                </Button>
+                <Button onClick={() => setImportOpen(true)}>
+                  <Upload />
+                  {t("vocabulary.import", "Import")}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
+          {listLoading ? (
+            <LoadingState label={t("common.loading", "Loading...")} />
+          ) : error ? (
+            <ErrorState
+              message={error}
+              retryLabel={t("vocabulary.retry", "Retry")}
+              onRetry={() => {
+                setEntriesVersion((current) => current + 1)
+                void loadVocabularies()
+              }}
             />
-          </>
-        )}
-      </div>
+          ) : !selected ? (
+            <EmptyState
+              title={t("vocabulary.noLibrariesTitle")}
+              description={t("vocabulary.noLibrariesDescription")}
+              actionLabel={t("vocabulary.create")}
+              actionIcon="create"
+              onAction={() => setCreateOpen(true)}
+            />
+          ) : entriesLoading && !data ? (
+            <LoadingState label={t("common.loading", "Loading...")} />
+          ) : total === 0 ? (
+            <EmptyState
+              title={t("vocabulary.emptyTitle", "No vocabulary yet")}
+              description={t("vocabulary.emptyDescription")}
+              actionLabel={t("vocabulary.import", "Import")}
+              actionIcon="import"
+              onAction={() => setImportOpen(true)}
+            />
+          ) : (
+            <>
+              <div className="mt-5 overflow-hidden rounded-lg border border-border/70">
+                <div className="hidden h-9 grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.6fr)_120px_40px] items-center gap-4 border-b bg-muted/40 px-4 text-xs font-medium text-muted-foreground md:grid">
+                  <span>{t("vocabulary.targetText", "Target language")}</span>
+                  <span>{t("vocabulary.meaning", "Native meaning")}</span>
+                  <span>{t("vocabulary.status", "Status")}</span>
+                  <span className="sr-only">
+                    {t("vocabulary.details", "Details")}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/70">
+                  {data?.data.map((entry) => (
+                    <VocabularyRow
+                      key={entry.id}
+                      entry={entry}
+                      expanded={expanded.has(entry.id)}
+                      onToggle={() => toggleExpanded(entry.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                onPrevious={() =>
+                  setPage((current) => Math.max(1, current - 1))
+                }
+                onNext={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+              />
+            </>
+          )}
+        </div>
+      </main>
+
+      <aside className="order-first border-b border-border/70 bg-muted/15 lg:order-last lg:border-b-0 lg:border-l">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 lg:h-14 lg:border-b lg:border-border/70">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <LibraryBig className="size-4 text-muted-foreground" />
+            {t("vocabulary.libraries")}
+          </div>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => setCreateOpen(true)}
+            title={t("vocabulary.create")}
+          >
+            <Plus />
+          </Button>
+        </div>
+        <div className="flex gap-2 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-x-visible lg:p-2">
+          {vocabularies.map((vocabulary) => (
+            <button
+              key={vocabulary.id}
+              type="button"
+              className={cn(
+                "min-w-48 rounded-md border px-3 py-2 text-left transition-colors lg:min-w-0",
+                vocabulary.id === selectedID
+                  ? "border-primary/30 bg-background shadow-sm"
+                  : "border-transparent hover:bg-muted"
+              )}
+              onClick={() => setSelectedID(vocabulary.id)}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {vocabulary.name}
+                </span>
+                {vocabulary.is_default ? (
+                  <Star className="size-3.5 fill-current text-amber-500" />
+                ) : null}
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  {vocabulary.target_language} → {vocabulary.native_language}
+                </span>
+                <span>{vocabulary.entry_count}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </aside>
 
       <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
+        vocabulary={selected}
         onImported={handleImported}
+      />
+
+      <VocabularyFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        vocabulary={null}
+        onSaved={handleVocabularySaved}
+      />
+      <VocabularyFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        vocabulary={selected}
+        onSaved={handleVocabularySaved}
       />
 
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
@@ -250,6 +442,34 @@ export default function VocabularyPage() {
               {clearing
                 ? t("vocabulary.clearing", "Clearing...")
                 : t("vocabulary.confirmClear", "Clear vocabulary")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("vocabulary.deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("vocabulary.deleteDescription", { name: selected?.name })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleting}>
+                {t("common.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+            >
+              <Trash2 />
+              {deleting
+                ? t("vocabulary.deleting")
+                : t("vocabulary.confirmDelete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -508,28 +728,194 @@ function Pagination({
   )
 }
 
+function VocabularyFormDialog({
+  open,
+  onOpenChange,
+  vocabulary,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  vocabulary: VocabularySummary | null
+  onSaved: (vocabulary: Vocabulary) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = React.useState("")
+  const [targetLanguage, setTargetLanguage] = React.useState("")
+  const [nativeLanguage, setNativeLanguage] = React.useState("")
+  const [isDefault, setIsDefault] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const editing = vocabulary !== null
+
+  React.useEffect(() => {
+    if (!open) return
+    setName(vocabulary?.name ?? "")
+    setTargetLanguage(vocabulary?.target_language ?? "")
+    setNativeLanguage(vocabulary?.native_language ?? "")
+    setIsDefault(vocabulary?.is_default ?? false)
+    setError("")
+  }, [open, vocabulary])
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!name.trim()) {
+      setError(t("vocabulary.nameRequired"))
+      return
+    }
+    try {
+      setSaving(true)
+      setError("")
+      const payload = {
+        name: name.trim(),
+        target_language: targetLanguage.trim(),
+        native_language: nativeLanguage.trim(),
+        is_default: isDefault,
+      }
+      const result = vocabulary
+        ? await updateVocabulary(vocabulary.id, payload)
+        : await createVocabulary(payload)
+      await onSaved(result)
+      toast.success(
+        editing ? t("vocabulary.updateSuccess") : t("vocabulary.createSuccess")
+      )
+    } catch (saveError: unknown) {
+      setError(getErrorMessage(saveError, t("vocabulary.saveFailed")))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const languagesLocked = Boolean(vocabulary && vocabulary.entry_count > 0)
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>
+              {editing
+                ? t("vocabulary.editTitle")
+                : t("vocabulary.createTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {editing
+                ? t("vocabulary.editDescription")
+                : t("vocabulary.createDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            <Label
+              htmlFor={
+                editing ? "edit-vocabulary-name" : "create-vocabulary-name"
+              }
+            >
+              {t("vocabulary.name")}
+            </Label>
+            <Input
+              id={editing ? "edit-vocabulary-name" : "create-vocabulary-name"}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              disabled={saving}
+              autoFocus
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label
+                htmlFor={
+                  editing ? "edit-target-language" : "create-target-language"
+                }
+              >
+                {t("settings.targetLanguage")}
+              </Label>
+              <Input
+                id={editing ? "edit-target-language" : "create-target-language"}
+                value={targetLanguage}
+                onChange={(event) => setTargetLanguage(event.target.value)}
+                placeholder="en-US"
+                disabled={saving || languagesLocked}
+                title={
+                  languagesLocked ? t("vocabulary.languagesLocked") : undefined
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label
+                htmlFor={
+                  editing ? "edit-native-language" : "create-native-language"
+                }
+              >
+                {t("settings.nativeLanguage")}
+              </Label>
+              <Input
+                id={editing ? "edit-native-language" : "create-native-language"}
+                value={nativeLanguage}
+                onChange={(event) => setNativeLanguage(event.target.value)}
+                placeholder="zh-CN"
+                disabled={saving || languagesLocked}
+                title={
+                  languagesLocked ? t("vocabulary.languagesLocked") : undefined
+                }
+              />
+            </div>
+          </div>
+
+          {!vocabulary?.is_default ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isDefault}
+                onChange={(event) => setIsDefault(event.target.checked)}
+                disabled={saving}
+                className="size-4 rounded border-input accent-primary"
+              />
+              {t("vocabulary.setDefault")}
+            </label>
+          ) : null}
+
+          {error ? (
+            <div className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={saving}>
+                {t("common.cancel")}
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={saving}>
+              {saving ? t("common.saving") : t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function ImportDialog({
   open,
   onOpenChange,
+  vocabulary,
   onImported,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  vocabulary: VocabularySummary | null
   onImported: (result: VocabularyImportResult) => Promise<void>
 }) {
   const { t } = useTranslation()
   const [file, setFile] = React.useState<File | null>(null)
-  const [name, setName] = React.useState("")
-  const [targetLanguage, setTargetLanguage] = React.useState("")
-  const [nativeLanguage, setNativeLanguage] = React.useState("")
   const [importing, setImporting] = React.useState(false)
   const [error, setError] = React.useState("")
 
   const reset = () => {
     setFile(null)
-    setName("")
-    setTargetLanguage("")
-    setNativeLanguage("")
     setError("")
   }
 
@@ -545,6 +931,10 @@ function ImportDialog({
       setError(t("vocabulary.fileRequired", "Choose a JSON file"))
       return
     }
+    if (!vocabulary) {
+      setError(t("vocabulary.createBeforeImport"))
+      return
+    }
     if (file.size > MAX_IMPORT_FILE_SIZE) {
       setError(t("vocabulary.fileTooLarge", "The file exceeds 20 MB"))
       return
@@ -554,13 +944,8 @@ function ImportDialog({
       setImporting(true)
       setError("")
       const parsed: unknown = JSON.parse(await file.text())
-      const payload = buildImportPayload(
-        parsed,
-        name,
-        targetLanguage,
-        nativeLanguage
-      )
-      const result = await importVocabulary(payload)
+      const payload = buildImportPayload(parsed)
+      const result = await importVocabulary(vocabulary.id, payload)
       reset()
       await onImported(result)
     } catch (importError: unknown) {
@@ -582,7 +967,7 @@ function ImportDialog({
           <DialogHeader>
             <DialogTitle>{t("vocabulary.importTitle")}</DialogTitle>
             <DialogDescription>
-              {t("vocabulary.importDescription")}
+              {t("vocabulary.importInto", { name: vocabulary?.name })}
             </DialogDescription>
           </DialogHeader>
 
@@ -600,46 +985,6 @@ function ImportDialog({
                 setError("")
               }}
             />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="vocabulary-name">
-              {t("vocabulary.name", "Vocabulary name")}
-            </Label>
-            <Input
-              id="vocabulary-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t("vocabulary.defaultName", "Default Vocabulary")}
-              disabled={importing}
-            />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="vocabulary-target-language">
-                {t("settings.targetLanguage", "Target Language")}
-              </Label>
-              <Input
-                id="vocabulary-target-language"
-                value={targetLanguage}
-                onChange={(event) => setTargetLanguage(event.target.value)}
-                placeholder="en-US"
-                disabled={importing}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="vocabulary-native-language">
-                {t("settings.nativeLanguage", "Native Language")}
-              </Label>
-              <Input
-                id="vocabulary-native-language"
-                value={nativeLanguage}
-                onChange={(event) => setNativeLanguage(event.target.value)}
-                placeholder="zh-CN"
-                disabled={importing}
-              />
-            </div>
           </div>
 
           {error ? (
@@ -667,32 +1012,17 @@ function ImportDialog({
   )
 }
 
-function buildImportPayload(
-  parsed: unknown,
-  name: string,
-  targetLanguage: string,
-  nativeLanguage: string
-) {
-  const overrides = {
-    ...(name.trim() ? { name: name.trim() } : {}),
-    ...(targetLanguage.trim()
-      ? { target_language: targetLanguage.trim() }
-      : {}),
-    ...(nativeLanguage.trim()
-      ? { native_language: nativeLanguage.trim() }
-      : {}),
-  }
-
+function buildImportPayload(parsed: unknown) {
   if (Array.isArray(parsed)) {
-    return { ...overrides, entries: parsed }
+    return { entries: parsed }
   }
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error("JSON must contain a vocabulary object or array")
   }
   if ("entries" in parsed && Array.isArray(parsed.entries)) {
-    return { ...parsed, ...overrides }
+    return { entries: parsed.entries }
   }
-  return { ...overrides, entries: [parsed] }
+  return { entries: [parsed] }
 }
 
 function LoadingState({ label }: { label: string }) {
@@ -725,13 +1055,15 @@ function ErrorState({
 function EmptyState({
   title,
   description,
-  importLabel,
-  onImport,
+  actionLabel,
+  actionIcon,
+  onAction,
 }: {
   title: string
   description: string
-  importLabel: string
-  onImport: () => void
+  actionLabel: string
+  actionIcon: "create" | "import"
+  onAction: () => void
 }) {
   return (
     <div className="flex min-h-[48vh] flex-col items-center justify-center px-4 text-center">
@@ -742,9 +1074,9 @@ function EmptyState({
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         {description}
       </p>
-      <Button className="mt-4" onClick={onImport}>
-        <Upload />
-        {importLabel}
+      <Button className="mt-4" onClick={onAction}>
+        {actionIcon === "create" ? <Plus /> : <Upload />}
+        {actionLabel}
       </Button>
     </div>
   )

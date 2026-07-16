@@ -20,14 +20,71 @@ func NewVocabularyController(vocabularyService *services.VocabularyService) *Voc
 	return &VocabularyController{vocabularyService: vocabularyService}
 }
 
+func (vc *VocabularyController) List(c *gin.Context) {
+	result, err := vc.vocabularyService.List(c.Request.Context(), c.GetInt64("user_id"))
+	if err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func (vc *VocabularyController) Create(c *gin.Context) {
+	var input services.VocabularyCreateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A vocabulary object is required"})
+		return
+	}
+	result, err := vc.vocabularyService.Create(c.Request.Context(), c.GetInt64("user_id"), input)
+	if err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, result)
+}
+
+func (vc *VocabularyController) Update(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
+	var input services.VocabularyUpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A vocabulary object is required"})
+		return
+	}
+	result, err := vc.vocabularyService.Update(c.Request.Context(), c.GetInt64("user_id"), vocabularyID, input)
+	if err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (vc *VocabularyController) Delete(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
+	if err := vc.vocabularyService.Delete(c.Request.Context(), c.GetInt64("user_id"), vocabularyID); err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (vc *VocabularyController) Import(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
 	input, err := decodeVocabularyImport(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "A vocabulary import object is required"})
 		return
 	}
 
-	result, err := vc.vocabularyService.Import(c.Request.Context(), c.GetInt64("user_id"), *input)
+	result, err := vc.vocabularyService.Import(c.Request.Context(), c.GetInt64("user_id"), vocabularyID, *input)
 	if err != nil {
 		vc.writeError(c, err)
 		return
@@ -64,7 +121,11 @@ func decodeVocabularyImport(c *gin.Context) (*services.VocabularyImportInput, er
 	return &input, nil
 }
 
-func (vc *VocabularyController) Get(c *gin.Context) {
+func (vc *VocabularyController) GetEntries(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
 	page, err := positiveIntQuery(c, "page", 1)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "page must be a positive integer"})
@@ -76,7 +137,7 @@ func (vc *VocabularyController) Get(c *gin.Context) {
 		return
 	}
 
-	result, err := vc.vocabularyService.Get(c.Request.Context(), c.GetInt64("user_id"), page, pageSize)
+	result, err := vc.vocabularyService.Get(c.Request.Context(), c.GetInt64("user_id"), vocabularyID, page, pageSize)
 	if err != nil {
 		vc.writeError(c, err)
 		return
@@ -84,8 +145,12 @@ func (vc *VocabularyController) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-func (vc *VocabularyController) Clear(c *gin.Context) {
-	deleted, err := vc.vocabularyService.Clear(c.Request.Context(), c.GetInt64("user_id"))
+func (vc *VocabularyController) ClearEntries(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
+	deleted, err := vc.vocabularyService.Clear(c.Request.Context(), c.GetInt64("user_id"), vocabularyID)
 	if err != nil {
 		vc.writeError(c, err)
 		return
@@ -95,13 +160,28 @@ func (vc *VocabularyController) Clear(c *gin.Context) {
 
 func (vc *VocabularyController) writeError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, services.ErrVocabularyNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, services.ErrVocabularyNameConflict):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	case errors.Is(err, services.ErrVocabularyInvalidImport),
+		errors.Is(err, services.ErrVocabularyInvalidInput),
 		errors.Is(err, services.ErrVocabularyLanguageRequired),
-		errors.Is(err, services.ErrVocabularyLanguageMismatch):
+		errors.Is(err, services.ErrVocabularyLanguageLocked),
+		errors.Is(err, services.ErrVocabularyDefaultRequired):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Vocabulary operation failed"})
 	}
+}
+
+func vocabularyIDParam(c *gin.Context) (int64, bool) {
+	vocabularyID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || vocabularyID < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid vocabulary ID"})
+		return 0, false
+	}
+	return vocabularyID, true
 }
 
 func positiveIntQuery(c *gin.Context, name string, fallback int) (int, error) {

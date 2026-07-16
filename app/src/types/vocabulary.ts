@@ -12,6 +12,29 @@ export interface Vocabulary {
   updated_at: string
 }
 
+export interface VocabularySummary {
+  id: number
+  name: string
+  target_language: string
+  native_language: string
+  is_default: boolean
+  entry_count: number
+}
+
+export interface VocabularyInput {
+  name: string
+  target_language?: string
+  native_language?: string
+  is_default?: boolean
+}
+
+export interface VocabularyUpdateInput {
+  name?: string
+  target_language?: string
+  native_language?: string
+  is_default?: boolean
+}
+
 export interface VocabularyPronunciation {
   id: number
   entry_id: number
@@ -80,7 +103,7 @@ export interface VocabularyEntry {
 }
 
 export interface VocabularyPage {
-  vocabulary: Vocabulary | null
+  vocabulary: Vocabulary
   data: VocabularyEntry[]
   total: number
   page: number

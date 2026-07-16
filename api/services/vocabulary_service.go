@@ -13,15 +13,18 @@ import (
 )
 
 const (
-	defaultVocabularyName      = "Default Vocabulary"
 	maxVocabularyImportEntries = 10000
 	vocabularyAdvisoryLockBase = int64(740000000000000000)
 )
 
 var (
 	ErrVocabularyInvalidImport    = errors.New("invalid vocabulary import")
+	ErrVocabularyInvalidInput     = errors.New("invalid vocabulary input")
+	ErrVocabularyNotFound         = errors.New("vocabulary not found")
+	ErrVocabularyNameConflict     = errors.New("a vocabulary with this name already exists")
 	ErrVocabularyLanguageRequired = errors.New("target language and native language are required")
-	ErrVocabularyLanguageMismatch = errors.New("default vocabulary language pair does not match the import")
+	ErrVocabularyLanguageLocked   = errors.New("vocabulary languages cannot be changed while it contains entries")
+	ErrVocabularyDefaultRequired  = errors.New("a default vocabulary is required")
 )
 
 type VocabularyService struct {
@@ -29,10 +32,21 @@ type VocabularyService struct {
 }
 
 type VocabularyImportInput struct {
-	Name           string                  `json:"name"`
-	TargetLanguage string                  `json:"target_language"`
-	NativeLanguage string                  `json:"native_language"`
-	Entries        []VocabularyImportEntry `json:"entries"`
+	Entries []VocabularyImportEntry `json:"entries"`
+}
+
+type VocabularyCreateInput struct {
+	Name           string `json:"name"`
+	TargetLanguage string `json:"target_language"`
+	NativeLanguage string `json:"native_language"`
+	IsDefault      bool   `json:"is_default"`
+}
+
+type VocabularyUpdateInput struct {
+	Name           *string `json:"name"`
+	TargetLanguage *string `json:"target_language"`
+	NativeLanguage *string `json:"native_language"`
+	IsDefault      *bool   `json:"is_default"`
 }
 
 type VocabularyImportEntry struct {
@@ -88,43 +102,198 @@ type VocabularyEntryPage struct {
 	PageSize   int                      `json:"page_size"`
 }
 
+type VocabularySummary struct {
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	TargetLanguage string `json:"target_language"`
+	NativeLanguage string `json:"native_language"`
+	IsDefault      bool   `json:"is_default"`
+	EntryCount     int64  `json:"entry_count"`
+}
+
 func NewVocabularyService(userSettingsService *UserSettingsService) *VocabularyService {
 	return &VocabularyService{userSettingsService: userSettingsService}
 }
 
-func (s *VocabularyService) Import(ctx context.Context, userID int64, input VocabularyImportInput) (*VocabularyImportResult, error) {
-	if err := validateVocabularyImport(input); err != nil {
-		return nil, err
+func (s *VocabularyService) List(ctx context.Context, userID int64) ([]VocabularySummary, error) {
+	vocabularies := make([]VocabularySummary, 0)
+	err := database.DB.WithContext(ctx).
+		Table("vocabularies").
+		Select("vocabularies.id, vocabularies.name, vocabularies.target_language, vocabularies.native_language, vocabularies.is_default, COUNT(vocabulary_entries.id) AS entry_count").
+		Joins("LEFT JOIN vocabulary_entries ON vocabulary_entries.vocabulary_id = vocabularies.id").
+		Where("vocabularies.user_id = ?", userID).
+		Group("vocabularies.id").
+		Order("vocabularies.is_default DESC, vocabularies.updated_at DESC, vocabularies.id DESC").
+		Scan(&vocabularies).Error
+	return vocabularies, err
+}
+
+func (s *VocabularyService) Create(ctx context.Context, userID int64, input VocabularyCreateInput) (*models.Vocabulary, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" || len([]rune(name)) > 128 {
+		return nil, fmt.Errorf("%w: name is required and must not exceed 128 characters", ErrVocabularyInvalidInput)
 	}
 	targetLanguage, nativeLanguage, err := s.resolveLanguages(userID, input.TargetLanguage, input.NativeLanguage)
 	if err != nil {
 		return nil, err
 	}
-	if len([]rune(targetLanguage)) > 32 || len([]rune(nativeLanguage)) > 32 {
-		return nil, fmt.Errorf("%w: language codes must not exceed 32 characters", ErrVocabularyInvalidImport)
+	if err := validateVocabularyInfo(name, targetLanguage, nativeLanguage); err != nil {
+		return nil, err
 	}
 
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		name = defaultVocabularyName
-	}
-	if len([]rune(name)) > 128 {
-		return nil, fmt.Errorf("%w: name must not exceed 128 characters", ErrVocabularyInvalidImport)
-	}
-
-	result := &VocabularyImportResult{}
+	var vocabulary models.Vocabulary
 	err = database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockUserVocabulary(tx, userID); err != nil {
 			return err
 		}
+		if err := ensureVocabularyNameAvailable(tx, userID, name, 0); err != nil {
+			return err
+		}
 
-		vocabulary, err := ensureDefaultVocabulary(tx, userID, name, targetLanguage, nativeLanguage)
+		var defaultCount int64
+		if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Count(&defaultCount).Error; err != nil {
+			return err
+		}
+		isDefault := input.IsDefault || defaultCount == 0
+		if isDefault {
+			if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+
+		vocabulary = models.Vocabulary{
+			UserID:         userID,
+			Name:           name,
+			TargetLanguage: targetLanguage,
+			NativeLanguage: nativeLanguage,
+			IsDefault:      isDefault,
+		}
+		return tx.Create(&vocabulary).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &vocabulary, nil
+}
+
+func (s *VocabularyService) Update(ctx context.Context, userID, vocabularyID int64, input VocabularyUpdateInput) (*models.Vocabulary, error) {
+	var vocabulary *models.Vocabulary
+	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockUserVocabulary(tx, userID); err != nil {
+			return err
+		}
+		current, err := findOwnedVocabulary(tx, userID, vocabularyID)
+		if err != nil {
+			return err
+		}
+
+		name := current.Name
+		if input.Name != nil {
+			name = strings.TrimSpace(*input.Name)
+		}
+		targetLanguage := current.TargetLanguage
+		if input.TargetLanguage != nil {
+			targetLanguage = strings.TrimSpace(*input.TargetLanguage)
+		}
+		nativeLanguage := current.NativeLanguage
+		if input.NativeLanguage != nil {
+			nativeLanguage = strings.TrimSpace(*input.NativeLanguage)
+		}
+		if err := validateVocabularyInfo(name, targetLanguage, nativeLanguage); err != nil {
+			return err
+		}
+		if err := ensureVocabularyNameAvailable(tx, userID, name, vocabularyID); err != nil {
+			return err
+		}
+
+		languagesChanged := targetLanguage != current.TargetLanguage || nativeLanguage != current.NativeLanguage
+		if languagesChanged {
+			var entryCount int64
+			if err := tx.Model(&models.VocabularyEntry{}).Where("vocabulary_id = ?", vocabularyID).Count(&entryCount).Error; err != nil {
+				return err
+			}
+			if entryCount > 0 {
+				return ErrVocabularyLanguageLocked
+			}
+		}
+
+		isDefault := current.IsDefault
+		if input.IsDefault != nil {
+			if !*input.IsDefault && current.IsDefault {
+				return ErrVocabularyDefaultRequired
+			}
+			if *input.IsDefault && !current.IsDefault {
+				if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Update("is_default", false).Error; err != nil {
+					return err
+				}
+				isDefault = true
+			}
+		}
+
+		if err := tx.Model(current).Updates(map[string]any{
+			"name":            name,
+			"target_language": targetLanguage,
+			"native_language": nativeLanguage,
+			"is_default":      isDefault,
+		}).Error; err != nil {
+			return err
+		}
+		current.Name = name
+		current.TargetLanguage = targetLanguage
+		current.NativeLanguage = nativeLanguage
+		current.IsDefault = isDefault
+		vocabulary = current
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return vocabulary, nil
+}
+
+func (s *VocabularyService) Delete(ctx context.Context, userID, vocabularyID int64) error {
+	return database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockUserVocabulary(tx, userID); err != nil {
+			return err
+		}
+		vocabulary, err := findOwnedVocabulary(tx, userID, vocabularyID)
+		if err != nil {
+			return err
+		}
+		if err := tx.Delete(vocabulary).Error; err != nil {
+			return err
+		}
+		if vocabulary.IsDefault {
+			var replacement models.Vocabulary
+			operation := tx.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Limit(1).Find(&replacement)
+			if operation.Error != nil {
+				return operation.Error
+			}
+			if operation.RowsAffected > 0 {
+				return tx.Model(&replacement).Update("is_default", true).Error
+			}
+		}
+		return nil
+	})
+}
+
+func (s *VocabularyService) Import(ctx context.Context, userID, vocabularyID int64, input VocabularyImportInput) (*VocabularyImportResult, error) {
+	if err := validateVocabularyImport(input); err != nil {
+		return nil, err
+	}
+
+	result := &VocabularyImportResult{}
+	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockUserVocabulary(tx, userID); err != nil {
+			return err
+		}
+		vocabulary, err := findOwnedVocabulary(tx, userID, vocabularyID)
 		if err != nil {
 			return err
 		}
 
 		for index := range input.Entries {
-			if err := importVocabularyEntry(tx, vocabulary.ID, targetLanguage, nativeLanguage, input.Entries[index], result); err != nil {
+			if err := importVocabularyEntry(tx, vocabulary.ID, vocabulary.TargetLanguage, vocabulary.NativeLanguage, input.Entries[index], result); err != nil {
 				return err
 			}
 		}
@@ -138,15 +307,15 @@ func (s *VocabularyService) Import(ctx context.Context, userID int64, input Voca
 	return result, nil
 }
 
-func (s *VocabularyService) Clear(ctx context.Context, userID int64) (int64, error) {
+func (s *VocabularyService) Clear(ctx context.Context, userID, vocabularyID int64) (int64, error) {
 	var deleted int64
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockUserVocabulary(tx, userID); err != nil {
 			return err
 		}
 
-		vocabulary, found, err := findDefaultVocabulary(tx, userID)
-		if err != nil || !found {
+		vocabulary, err := findOwnedVocabulary(tx, userID, vocabularyID)
+		if err != nil {
 			return err
 		}
 
@@ -157,7 +326,7 @@ func (s *VocabularyService) Clear(ctx context.Context, userID int64) (int64, err
 	return deleted, err
 }
 
-func (s *VocabularyService) Get(ctx context.Context, userID int64, page, pageSize int) (*VocabularyEntryPage, error) {
+func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64, page, pageSize int) (*VocabularyEntryPage, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -168,20 +337,16 @@ func (s *VocabularyService) Get(ctx context.Context, userID int64, page, pageSiz
 		pageSize = 100
 	}
 
-	vocabulary, found, err := findDefaultVocabulary(database.DB.WithContext(ctx), userID)
+	vocabulary, err := findOwnedVocabulary(database.DB.WithContext(ctx), userID, vocabularyID)
 	if err != nil {
 		return nil, err
 	}
 	result := &VocabularyEntryPage{
-		Data:     make([]models.VocabularyEntry, 0),
-		Page:     page,
-		PageSize: pageSize,
+		Vocabulary: vocabulary,
+		Data:       make([]models.VocabularyEntry, 0),
+		Page:       page,
+		PageSize:   pageSize,
 	}
-	if !found {
-		return result, nil
-	}
-	result.Vocabulary = vocabulary
-
 	query := database.DB.WithContext(ctx).
 		Model(&models.VocabularyEntry{}).
 		Where("vocabulary_id = ?", vocabulary.ID)
@@ -278,41 +443,44 @@ func validateVocabularyImport(input VocabularyImportInput) error {
 	return nil
 }
 
-func ensureDefaultVocabulary(tx *gorm.DB, userID int64, name, targetLanguage, nativeLanguage string) (*models.Vocabulary, error) {
-	vocabulary, found, err := findDefaultVocabulary(tx, userID)
-	if err != nil {
-		return nil, err
+func validateVocabularyInfo(name, targetLanguage, nativeLanguage string) error {
+	if name == "" || len([]rune(name)) > 128 {
+		return fmt.Errorf("%w: name is required and must not exceed 128 characters", ErrVocabularyInvalidInput)
 	}
-	if found {
-		if vocabulary.TargetLanguage != targetLanguage || vocabulary.NativeLanguage != nativeLanguage {
-			return nil, ErrVocabularyLanguageMismatch
-		}
-		return vocabulary, nil
+	if targetLanguage == "" || nativeLanguage == "" {
+		return ErrVocabularyLanguageRequired
 	}
-
-	vocabulary = &models.Vocabulary{
-		UserID:         userID,
-		Name:           name,
-		TargetLanguage: targetLanguage,
-		NativeLanguage: nativeLanguage,
-		IsDefault:      true,
+	if len([]rune(targetLanguage)) > 32 || len([]rune(nativeLanguage)) > 32 {
+		return fmt.Errorf("%w: language codes must not exceed 32 characters", ErrVocabularyInvalidInput)
 	}
-	if err := tx.Create(vocabulary).Error; err != nil {
-		return nil, err
-	}
-	return vocabulary, nil
+	return nil
 }
 
-func findDefaultVocabulary(db *gorm.DB, userID int64) (*models.Vocabulary, bool, error) {
+func findOwnedVocabulary(db *gorm.DB, userID, vocabularyID int64) (*models.Vocabulary, error) {
 	var vocabulary models.Vocabulary
-	operation := db.Where("user_id = ? AND is_default = ?", userID, true).Limit(1).Find(&vocabulary)
+	operation := db.Where("user_id = ? AND id = ?", userID, vocabularyID).Limit(1).Find(&vocabulary)
 	if operation.Error != nil {
-		return nil, false, operation.Error
+		return nil, operation.Error
 	}
 	if operation.RowsAffected == 0 {
-		return nil, false, nil
+		return nil, ErrVocabularyNotFound
 	}
-	return &vocabulary, true, nil
+	return &vocabulary, nil
+}
+
+func ensureVocabularyNameAvailable(tx *gorm.DB, userID int64, name string, excludeID int64) error {
+	query := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND name = ?", userID, name)
+	if excludeID > 0 {
+		query = query.Where("id <> ?", excludeID)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrVocabularyNameConflict
+	}
+	return nil
 }
 
 func importVocabularyEntry(tx *gorm.DB, vocabularyID int64, targetLanguage, nativeLanguage string, input VocabularyImportEntry, result *VocabularyImportResult) error {
