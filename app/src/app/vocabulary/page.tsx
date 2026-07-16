@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  ArrowRight,
   BookOpenText,
   ChevronDown,
   ChevronLeft,
@@ -38,6 +39,14 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { getErrorMessage } from "@/lib/error"
 import { cn } from "@/lib/utils"
 import type {
@@ -48,7 +57,8 @@ import type {
   VocabularySummary,
 } from "@/types/vocabulary"
 
-const PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
 const MAX_IMPORT_FILE_SIZE = 20 * 1024 * 1024
 
 export default function VocabularyPage() {
@@ -58,6 +68,7 @@ export default function VocabularyPage() {
   )
   const [selectedID, setSelectedID] = React.useState<number | null>(null)
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [data, setData] = React.useState<VocabularyPageData | null>(null)
   const [listLoading, setListLoading] = React.useState(true)
   const [entriesLoading, setEntriesLoading] = React.useState(false)
@@ -114,7 +125,7 @@ export default function VocabularyPage() {
     }
     try {
       setEntriesLoading(true)
-      const result = await getVocabularyEntries(selectedID, page, PAGE_SIZE)
+      const result = await getVocabularyEntries(selectedID, page, pageSize)
       if (request !== entriesRequest.current) return
       setData(result)
       setError("")
@@ -128,7 +139,7 @@ export default function VocabularyPage() {
         setEntriesLoading(false)
       }
     }
-  }, [page, selectedID, t])
+  }, [page, pageSize, selectedID, t])
 
   React.useEffect(() => {
     void entriesVersion
@@ -222,137 +233,140 @@ export default function VocabularyPage() {
   }
 
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <div className="grid min-h-full bg-background lg:grid-cols-[minmax(0,1fr)_280px]">
-      <main className="order-last min-w-0 lg:order-first">
-        <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
-          {selected ? (
-            <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <BookOpenText className="size-5 text-muted-foreground" />
-                  <h2 className="truncate text-xl font-semibold">
-                    {selected.name}
-                  </h2>
-                  {selected.is_default ? (
-                    <Star className="size-4 fill-current text-amber-500" />
-                  ) : null}
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-1">
+      <main className="order-last min-h-0 min-w-0 lg:order-first">
+        <ScrollArea className="h-full">
+          <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
+            {selected ? (
+              <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <BookOpenText className="size-5 text-muted-foreground" />
+                    <h2 className="truncate text-xl font-semibold">
+                      {selected.name}
+                    </h2>
+                    {selected.is_default ? (
+                      <Star className="size-4 fill-current text-amber-500" />
+                    ) : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Languages className="size-3.5" />
+                      {selected.target_language}
+                      <span aria-hidden="true">→</span>
+                      {selected.native_language}
+                    </span>
+                    <span>{t("vocabulary.entryCount", { count: total })}</span>
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Languages className="size-3.5" />
-                    {selected.target_language}
-                    <span aria-hidden="true">→</span>
-                    {selected.native_language}
-                  </span>
-                  <span>{t("vocabulary.entryCount", { count: total })}</span>
-                </div>
-              </div>
 
-              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setEditOpen(true)}
-                  title={t("vocabulary.edit")}
-                >
-                  <Pencil />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setClearOpen(true)}
-                  disabled={total === 0}
-                  title={t("vocabulary.clear")}
-                >
-                  <Eraser />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => setDeleteOpen(true)}
-                  title={t("vocabulary.delete")}
-                >
-                  <Trash2 />
-                </Button>
-                <Button onClick={() => setImportOpen(true)}>
-                  <Upload />
-                  {t("vocabulary.import", "Import")}
-                </Button>
-              </div>
-            </section>
-          ) : null}
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setEditOpen(true)}
+                    title={t("vocabulary.edit")}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setClearOpen(true)}
+                    disabled={total === 0}
+                    title={t("vocabulary.clear")}
+                  >
+                    <Eraser />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => setDeleteOpen(true)}
+                    title={t("vocabulary.delete")}
+                  >
+                    <Trash2 />
+                  </Button>
+                  <Button onClick={() => setImportOpen(true)}>
+                    <Upload />
+                    {t("vocabulary.import", "Import")}
+                  </Button>
+                </div>
+              </section>
+            ) : null}
 
-          {listLoading ? (
-            <LoadingState label={t("common.loading", "Loading...")} />
-          ) : error ? (
-            <ErrorState
-              message={error}
-              retryLabel={t("vocabulary.retry", "Retry")}
-              onRetry={() => {
-                setEntriesVersion((current) => current + 1)
-                void loadVocabularies()
-              }}
-            />
-          ) : !selected ? (
-            <EmptyState
-              title={t("vocabulary.noLibrariesTitle")}
-              description={t("vocabulary.noLibrariesDescription")}
-              actionLabel={t("vocabulary.create")}
-              actionIcon="create"
-              onAction={() => setCreateOpen(true)}
-            />
-          ) : entriesLoading && !data ? (
-            <LoadingState label={t("common.loading", "Loading...")} />
-          ) : total === 0 ? (
-            <EmptyState
-              title={t("vocabulary.emptyTitle", "No vocabulary yet")}
-              description={t("vocabulary.emptyDescription")}
-              actionLabel={t("vocabulary.import", "Import")}
-              actionIcon="import"
-              onAction={() => setImportOpen(true)}
-            />
-          ) : (
-            <>
-              <div className="mt-5 overflow-hidden rounded-lg border border-border/70">
-                <div className="hidden h-9 grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.6fr)_120px_40px] items-center gap-4 border-b bg-muted/40 px-4 text-xs font-medium text-muted-foreground md:grid">
-                  <span>{t("vocabulary.targetText", "Target language")}</span>
-                  <span>{t("vocabulary.meaning", "Native meaning")}</span>
-                  <span>{t("vocabulary.status", "Status")}</span>
-                  <span className="sr-only">
-                    {t("vocabulary.details", "Details")}
-                  </span>
-                </div>
-                <div className="divide-y divide-border/70">
-                  {data?.data.map((entry) => (
-                    <VocabularyRow
-                      key={entry.id}
-                      entry={entry}
-                      expanded={expanded.has(entry.id)}
-                      onToggle={() => toggleExpanded(entry.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                total={total}
-                onPrevious={() =>
-                  setPage((current) => Math.max(1, current - 1))
-                }
-                onNext={() =>
-                  setPage((current) => Math.min(totalPages, current + 1))
-                }
+            {listLoading ? (
+              <LoadingState label={t("common.loading", "Loading...")} />
+            ) : error ? (
+              <ErrorState
+                message={error}
+                retryLabel={t("vocabulary.retry", "Retry")}
+                onRetry={() => {
+                  setEntriesVersion((current) => current + 1)
+                  void loadVocabularies()
+                }}
               />
-            </>
-          )}
-        </div>
+            ) : !selected ? (
+              <EmptyState
+                title={t("vocabulary.noLibrariesTitle")}
+                description={t("vocabulary.noLibrariesDescription")}
+                actionLabel={t("vocabulary.create")}
+                actionIcon="create"
+                onAction={() => setCreateOpen(true)}
+              />
+            ) : entriesLoading && !data ? (
+              <LoadingState label={t("common.loading", "Loading...")} />
+            ) : total === 0 ? (
+              <EmptyState
+                title={t("vocabulary.emptyTitle", "No vocabulary yet")}
+                description={t("vocabulary.emptyDescription")}
+                actionLabel={t("vocabulary.import", "Import")}
+                actionIcon="import"
+                onAction={() => setImportOpen(true)}
+              />
+            ) : (
+              <>
+                <div className="mt-5 overflow-hidden rounded-lg border border-border/70">
+                  <div className="hidden h-9 grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.6fr)_120px_40px] items-center gap-4 border-b bg-muted/40 px-4 text-xs font-medium text-muted-foreground md:grid">
+                    <span>{t("vocabulary.targetText", "Target language")}</span>
+                    <span>{t("vocabulary.meaning", "Native meaning")}</span>
+                    <span>{t("vocabulary.status", "Status")}</span>
+                    <span className="sr-only">
+                      {t("vocabulary.details", "Details")}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-border/70">
+                    {data?.data.map((entry) => (
+                      <VocabularyRow
+                        key={entry.id}
+                        entry={entry}
+                        expanded={expanded.has(entry.id)}
+                        onToggle={() => toggleExpanded(entry.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  totalPages={totalPages}
+                  total={total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(nextPageSize) => {
+                    setPageSize(nextPageSize)
+                    setPage(1)
+                    setData(null)
+                  }}
+                />
+              </>
+            )}
+          </div>
+        </ScrollArea>
       </main>
 
-      <aside className="order-first border-b border-border/70 bg-muted/15 lg:order-last lg:border-b-0 lg:border-l">
+      <aside className="order-first min-h-0 border-b border-border/70 bg-muted/15 lg:order-last lg:border-b-0 lg:border-l">
         <div className="flex items-center justify-between gap-2 px-4 py-3 lg:h-14 lg:border-b lg:border-border/70">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <LibraryBig className="size-4 text-muted-foreground" />
@@ -367,36 +381,38 @@ export default function VocabularyPage() {
             <Plus />
           </Button>
         </div>
-        <div className="flex gap-2 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-x-visible lg:p-2">
-          {vocabularies.map((vocabulary) => (
-            <button
-              key={vocabulary.id}
-              type="button"
-              className={cn(
-                "min-w-48 rounded-md border px-3 py-2 text-left transition-colors lg:min-w-0",
-                vocabulary.id === selectedID
-                  ? "border-primary/30 bg-background shadow-sm"
-                  : "border-transparent hover:bg-muted"
-              )}
-              onClick={() => setSelectedID(vocabulary.id)}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {vocabulary.name}
-                </span>
-                {vocabulary.is_default ? (
-                  <Star className="size-3.5 fill-current text-amber-500" />
-                ) : null}
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>
-                  {vocabulary.target_language} → {vocabulary.native_language}
-                </span>
-                <span>{vocabulary.entry_count}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+        <ScrollArea className="h-24 lg:h-[calc(100%-3.5rem)]" scrollbars="both">
+          <div className="flex w-max gap-2 px-3 pb-3 lg:w-auto lg:flex-col lg:p-2">
+            {vocabularies.map((vocabulary) => (
+              <button
+                key={vocabulary.id}
+                type="button"
+                className={cn(
+                  "w-48 rounded-md border px-3 py-2 text-left transition-colors lg:w-auto",
+                  vocabulary.id === selectedID
+                    ? "border-primary/30 bg-background shadow-sm"
+                    : "border-transparent hover:bg-muted"
+                )}
+                onClick={() => setSelectedID(vocabulary.id)}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {vocabulary.name}
+                  </span>
+                  {vocabulary.is_default ? (
+                    <Star className="size-3.5 fill-current text-amber-500" />
+                  ) : null}
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {vocabulary.target_language} → {vocabulary.native_language}
+                  </span>
+                  <span>{vocabulary.entry_count}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
       </aside>
 
       <ImportDialog
@@ -687,28 +703,69 @@ function DetailSection({
 
 function Pagination({
   page,
+  pageSize,
   totalPages,
   total,
-  onPrevious,
-  onNext,
+  onPageChange,
+  onPageSizeChange,
 }: {
   page: number
+  pageSize: number
   totalPages: number
   total: number
-  onPrevious: () => void
-  onNext: () => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
 }) {
   const { t } = useTranslation()
+  const [jumpPage, setJumpPage] = React.useState(String(page))
+
+  React.useEffect(() => {
+    setJumpPage(String(page))
+  }, [page])
+
+  const submitJump = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const requested = Number.parseInt(jumpPage, 10)
+    if (Number.isNaN(requested)) {
+      setJumpPage(String(page))
+      return
+    }
+    const nextPage = Math.min(totalPages, Math.max(1, requested))
+    setJumpPage(String(nextPage))
+    onPageChange(nextPage)
+  }
+
   return (
-    <div className="flex items-center justify-between gap-3 py-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 py-4">
       <span className="text-xs text-muted-foreground">
         {t("vocabulary.pagination", { page, totalPages, total })}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            {t("vocabulary.pageSize")}
+          </span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => onPageSizeChange(Number(value))}
+          >
+            <SelectTrigger size="sm" className="w-16">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button
           variant="outline"
           size="icon-sm"
-          onClick={onPrevious}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           title={t("vocabulary.previous", "Previous page")}
         >
@@ -717,12 +774,38 @@ function Pagination({
         <Button
           variant="outline"
           size="icon-sm"
-          onClick={onNext}
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
           title={t("vocabulary.next", "Next page")}
         >
           <ChevronRight />
         </Button>
+
+        <form className="flex items-center gap-1.5" onSubmit={submitJump}>
+          <Label
+            htmlFor="vocabulary-jump-page"
+            className="text-xs text-muted-foreground"
+          >
+            {t("vocabulary.jumpTo")}
+          </Label>
+          <Input
+            id="vocabulary-jump-page"
+            type="number"
+            min={1}
+            max={totalPages}
+            value={jumpPage}
+            onChange={(event) => setJumpPage(event.target.value)}
+            className="h-7 w-16 text-center"
+          />
+          <Button
+            type="submit"
+            variant="outline"
+            size="icon-sm"
+            title={t("vocabulary.goToPage")}
+          >
+            <ArrowRight />
+          </Button>
+        </form>
       </div>
     </div>
   )
@@ -786,8 +869,6 @@ function VocabularyFormDialog({
     }
   }
 
-  const languagesLocked = Boolean(vocabulary && vocabulary.entry_count > 0)
-
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md">
@@ -836,10 +917,7 @@ function VocabularyFormDialog({
                 value={targetLanguage}
                 onChange={(event) => setTargetLanguage(event.target.value)}
                 placeholder="en-US"
-                disabled={saving || languagesLocked}
-                title={
-                  languagesLocked ? t("vocabulary.languagesLocked") : undefined
-                }
+                disabled={saving}
               />
             </div>
             <div className="grid gap-2">
@@ -855,10 +933,7 @@ function VocabularyFormDialog({
                 value={nativeLanguage}
                 onChange={(event) => setNativeLanguage(event.target.value)}
                 placeholder="zh-CN"
-                disabled={saving || languagesLocked}
-                title={
-                  languagesLocked ? t("vocabulary.languagesLocked") : undefined
-                }
+                disabled={saving}
               />
             </div>
           </div>

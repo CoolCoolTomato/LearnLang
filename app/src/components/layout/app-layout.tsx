@@ -95,7 +95,7 @@ export function AppLayout() {
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/35 animate-in fade-in duration-200 md:hidden"
+          className="fixed inset-0 z-40 animate-in bg-black/35 duration-200 fade-in md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-label={t("navigation.close", "Close sidebar")}
         />
@@ -162,7 +162,14 @@ export function AppLayout() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            location.pathname === "/chat" || location.pathname === "/vocabulary"
+              ? "overflow-hidden"
+              : "overflow-auto"
+          )}
+        >
           <Outlet context={{ setChatConnected }} />
         </div>
       </main>
@@ -314,7 +321,7 @@ function AppSidebar({
       </div>
 
       {mobileOpen ? (
-        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200 md:hidden">
+        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 animate-in flex-col bg-sidebar text-sidebar-foreground shadow-xl duration-200 slide-in-from-left md:hidden">
           {sidebarContent(true, true)}
         </aside>
       ) : null}

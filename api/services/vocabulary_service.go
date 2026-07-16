@@ -23,7 +23,6 @@ var (
 	ErrVocabularyNotFound         = errors.New("vocabulary not found")
 	ErrVocabularyNameConflict     = errors.New("a vocabulary with this name already exists")
 	ErrVocabularyLanguageRequired = errors.New("target language and native language are required")
-	ErrVocabularyLanguageLocked   = errors.New("vocabulary languages cannot be changed while it contains entries")
 	ErrVocabularyDefaultRequired  = errors.New("a default vocabulary is required")
 )
 
@@ -206,14 +205,21 @@ func (s *VocabularyService) Update(ctx context.Context, userID, vocabularyID int
 			return err
 		}
 
-		languagesChanged := targetLanguage != current.TargetLanguage || nativeLanguage != current.NativeLanguage
-		if languagesChanged {
-			var entryCount int64
-			if err := tx.Model(&models.VocabularyEntry{}).Where("vocabulary_id = ?", vocabularyID).Count(&entryCount).Error; err != nil {
+		if targetLanguage != current.TargetLanguage {
+			if err := tx.Model(&models.VocabularyEntry{}).
+				Where("vocabulary_id = ?", vocabularyID).
+				Update("target_language", targetLanguage).Error; err != nil {
 				return err
 			}
-			if entryCount > 0 {
-				return ErrVocabularyLanguageLocked
+		}
+		if nativeLanguage != current.NativeLanguage {
+			entryIDs := tx.Model(&models.VocabularyEntry{}).
+				Select("id").
+				Where("vocabulary_id = ?", vocabularyID)
+			if err := tx.Model(&models.VocabularyMeaning{}).
+				Where("entry_id IN (?)", entryIDs).
+				Update("native_language", nativeLanguage).Error; err != nil {
+				return err
 			}
 		}
 

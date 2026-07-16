@@ -167,7 +167,6 @@ func (vc *VocabularyController) writeError(c *gin.Context, err error) {
 	case errors.Is(err, services.ErrVocabularyInvalidImport),
 		errors.Is(err, services.ErrVocabularyInvalidInput),
 		errors.Is(err, services.ErrVocabularyLanguageRequired),
-		errors.Is(err, services.ErrVocabularyLanguageLocked),
 		errors.Is(err, services.ErrVocabularyDefaultRequired):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	default:
