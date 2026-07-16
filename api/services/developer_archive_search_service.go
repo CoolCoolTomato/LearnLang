@@ -60,7 +60,7 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 		return nil, err
 	}
 
-	memories, err := s.memoryStore.Search(ctx, userID, vector, limit)
+	memories, err := s.memoryStore.Search(ctx, userID, vector, limit*4)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,24 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 	for _, archive := range archives {
 		archiveByEmbeddingID[archive.EmbeddingID] = archive
 	}
+	liveMemories := make([]memory.Summary, 0, limit)
+	orphanIDs := make([]string, 0)
+	for _, item := range memories {
+		if _, ok := archiveByEmbeddingID[item.ID]; !ok {
+			orphanIDs = append(orphanIDs, item.ID)
+			continue
+		}
+		liveMemories = append(liveMemories, item)
+		if len(liveMemories) == limit {
+			break
+		}
+	}
+	_ = s.memoryStore.DeleteArchives(ctx, orphanIDs)
 
 	allMessageIDs := make([]int64, 0)
 	seenMessageIDs := make(map[int64]struct{})
-	for _, memory := range memories {
-		for _, messageID := range memory.MessageIDs {
+	for _, item := range liveMemories {
+		for _, messageID := range item.MessageIDs {
 			if _, seen := seenMessageIDs[messageID]; seen {
 				continue
 			}
@@ -107,23 +120,23 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 		messageByID[message.ID] = message
 	}
 
-	results := make([]DeveloperArchiveSearchResult, 0, len(memories))
-	for _, memory := range memories {
-		linkedMessages := make([]models.Message, 0, len(memory.MessageIDs))
-		for _, messageID := range memory.MessageIDs {
+	results := make([]DeveloperArchiveSearchResult, 0, len(liveMemories))
+	for _, item := range liveMemories {
+		linkedMessages := make([]models.Message, 0, len(item.MessageIDs))
+		for _, messageID := range item.MessageIDs {
 			if message, ok := messageByID[messageID]; ok {
 				linkedMessages = append(linkedMessages, message)
 			}
 		}
-		archive := archiveByEmbeddingID[memory.ID]
+		archive := archiveByEmbeddingID[item.ID]
 		results = append(results, DeveloperArchiveSearchResult{
-			EmbeddingID: memory.ID,
+			EmbeddingID: item.ID,
 			ArchiveID:   archive.ID,
-			Score:       memory.Score,
-			Summary:     memory.Summary,
-			MessageIDs:  append([]int64(nil), memory.MessageIDs...),
+			Score:       item.Score,
+			Summary:     item.Summary,
+			MessageIDs:  append([]int64(nil), item.MessageIDs...),
 			Messages:    linkedMessages,
-			CreatedAt:   memory.CreatedAt,
+			CreatedAt:   item.CreatedAt,
 		})
 	}
 	return results, nil

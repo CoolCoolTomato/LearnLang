@@ -4,6 +4,8 @@ import (
 	"context"
 	"learnlang-api/agent/embedding"
 	"learnlang-api/agent/memory"
+	"learnlang-api/database"
+	"learnlang-api/models"
 )
 
 type LongTermMemorySearchTool struct {
@@ -58,7 +60,7 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 		})
 	}
 
-	memories, err := t.Store.Search(ctx, t.UserID, embedding, limit)
+	memories, err := t.Store.Search(ctx, t.UserID, embedding, limit*4)
 	if err != nil {
 		return marshalToolResult(map[string]any{
 			"query":    input,
@@ -67,8 +69,30 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 		})
 	}
 
-	results := make([]memoryResult, 0, len(memories))
+	embeddingIDs := make([]string, 0, len(memories))
 	for _, item := range memories {
+		embeddingIDs = append(embeddingIDs, item.ID)
+	}
+	var existingIDs []string
+	if len(embeddingIDs) > 0 {
+		if err := database.DB.WithContext(ctx).
+			Model(&models.ConversationArchive{}).
+			Where("user_id = ? AND embedding_id IN ?", t.UserID, embeddingIDs).
+			Pluck("embedding_id", &existingIDs).Error; err != nil {
+			return "", err
+		}
+	}
+	existing := make(map[string]struct{}, len(existingIDs))
+	for _, id := range existingIDs {
+		existing[id] = struct{}{}
+	}
+	orphanIDs := make([]string, 0)
+	results := make([]memoryResult, 0, limit)
+	for _, item := range memories {
+		if _, ok := existing[item.ID]; !ok {
+			orphanIDs = append(orphanIDs, item.ID)
+			continue
+		}
 		messages, err := linkedMessages(ctx, t.UserID, item.MessageIDs)
 		if err != nil {
 			return "", err
@@ -82,7 +106,11 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 			Score:           item.Score,
 			Messages:        formatMessages(messages, t.Timezone),
 		})
+		if len(results) == limit {
+			break
+		}
 	}
+	_ = t.Store.DeleteArchives(ctx, orphanIDs)
 
 	return marshalToolResult(map[string]any{
 		"query":    input,

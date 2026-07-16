@@ -73,5 +73,5 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	api := r.Group("/api")
 
 	SetupUserRoutes(api, cfg, tokenManager, svc)
-	dev.SetupRoutes(api, cfg, tokenManager, services.NewDeveloperArchiveSearchService(memoryStore, userSettingsService))
+	dev.SetupRoutes(api, cfg, tokenManager, memoryStore, services.NewDeveloperArchiveSearchService(memoryStore, userSettingsService))
 }

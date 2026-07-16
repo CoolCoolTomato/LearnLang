@@ -100,6 +100,24 @@ func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string,
 	return id, nil
 }
 
+func (s *Store) DeleteArchives(ctx context.Context, embeddingIDs []string) error {
+	if len(embeddingIDs) == 0 {
+		return nil
+	}
+	if err := s.ensureCollection(ctx); err != nil {
+		return err
+	}
+
+	if _, err := s.client.Delete(ctx, milvusclient.NewDeleteOption(s.cfg.Collection).WithStringIDs(fieldID, embeddingIDs)); err != nil {
+		return err
+	}
+	flushTask, err := s.client.Flush(ctx, milvusclient.NewFlushOption(s.cfg.Collection))
+	if err != nil {
+		return err
+	}
+	return flushTask.Await(ctx)
+}
+
 func (s *Store) Search(ctx context.Context, userID int64, embedding []float32, limit int) ([]Summary, error) {
 	if limit <= 0 {
 		limit = 3

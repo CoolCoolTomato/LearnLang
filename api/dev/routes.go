@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"learnlang-api/agent/memory"
 	"learnlang-api/config"
 	"learnlang-api/middleware"
 	"learnlang-api/services"
@@ -9,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager, archiveSearchService *services.DeveloperArchiveSearchService) {
-	controller := NewController(services.NewDeveloperDataService(), archiveSearchService)
+func SetupRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *utils.TokenManager, memoryStore *memory.Store, archiveSearchService *services.DeveloperArchiveSearchService) {
+	controller := NewController(services.NewDeveloperDataService(memoryStore), archiveSearchService)
 	group := api.Group("/user/dev")
 	group.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
 	group.Use(middleware.DeveloperMiddleware(cfg.User.Username))

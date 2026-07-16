@@ -120,7 +120,7 @@ func (cc *Controller) Delete(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := cc.service.Delete(c.Param("resource"), id); err != nil {
+	if err := cc.service.Delete(c.Request.Context(), c.Param("resource"), id); err != nil {
 		cc.writeError(c, err)
 		return
 	}
@@ -135,7 +135,7 @@ func (cc *Controller) DeleteMany(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "A JSON object with ids is required"})
 		return
 	}
-	deleted, err := cc.service.DeleteMany(c.Param("resource"), request.IDs)
+	deleted, err := cc.service.DeleteMany(c.Request.Context(), c.Param("resource"), request.IDs)
 	if err != nil {
 		cc.writeError(c, err)
 		return

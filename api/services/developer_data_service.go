@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"learnlang-api/database"
@@ -20,7 +21,13 @@ const (
 	DeveloperResourceVoiceFiles           = "voice-files"
 )
 
-type DeveloperDataService struct{}
+type ArchiveVectorStore interface {
+	DeleteArchives(ctx context.Context, embeddingIDs []string) error
+}
+
+type DeveloperDataService struct {
+	archiveVectors ArchiveVectorStore
+}
 
 type DeveloperPage struct {
 	Data  any   `json:"data"`
@@ -40,8 +47,8 @@ type DeveloperDashboard struct {
 	VoiceFileBytes       int64       `json:"voice_file_bytes"`
 }
 
-func NewDeveloperDataService() *DeveloperDataService {
-	return &DeveloperDataService{}
+func NewDeveloperDataService(archiveVectors ArchiveVectorStore) *DeveloperDataService {
+	return &DeveloperDataService{archiveVectors: archiveVectors}
 }
 
 func (s *DeveloperDataService) Dashboard(userID int64) (*DeveloperDashboard, error) {
@@ -150,22 +157,26 @@ func (s *DeveloperDataService) Update(resource string, id int64, values map[stri
 	return s.Get(resource, id)
 }
 
-func (s *DeveloperDataService) Delete(resource string, id int64) error {
+func (s *DeveloperDataService) Delete(ctx context.Context, resource string, id int64) error {
 	model, err := developerModel(resource)
 	if err != nil {
 		return err
 	}
-	result := database.DB.Delete(model, id)
+	embeddingIDs, err := s.archiveEmbeddingIDs(ctx, resource, []int64{id})
+	if err != nil {
+		return err
+	}
+	result := database.DB.WithContext(ctx).Delete(model, id)
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	return nil
+	return s.deleteArchiveVectors(ctx, embeddingIDs)
 }
 
-func (s *DeveloperDataService) DeleteMany(resource string, ids []int64) (int64, error) {
+func (s *DeveloperDataService) DeleteMany(ctx context.Context, resource string, ids []int64) (int64, error) {
 	model, err := developerModel(resource)
 	if err != nil {
 		return 0, err
@@ -173,8 +184,37 @@ func (s *DeveloperDataService) DeleteMany(resource string, ids []int64) (int64, 
 	if len(ids) == 0 {
 		return 0, fmt.Errorf("ids are required")
 	}
-	result := database.DB.Where("id IN ?", ids).Delete(model)
-	return result.RowsAffected, result.Error
+	embeddingIDs, err := s.archiveEmbeddingIDs(ctx, resource, ids)
+	if err != nil {
+		return 0, err
+	}
+	result := database.DB.WithContext(ctx).Where("id IN ?", ids).Delete(model)
+	if result.Error != nil {
+		return result.RowsAffected, result.Error
+	}
+	if err := s.deleteArchiveVectors(ctx, embeddingIDs); err != nil {
+		return result.RowsAffected, err
+	}
+	return result.RowsAffected, nil
+}
+
+func (s *DeveloperDataService) archiveEmbeddingIDs(ctx context.Context, resource string, ids []int64) ([]string, error) {
+	if resource != DeveloperResourceConversationArchives {
+		return nil, nil
+	}
+	var embeddingIDs []string
+	err := database.DB.WithContext(ctx).
+		Model(&models.ConversationArchive{}).
+		Where("id IN ? AND embedding_id <> ''", ids).
+		Pluck("embedding_id", &embeddingIDs).Error
+	return embeddingIDs, err
+}
+
+func (s *DeveloperDataService) deleteArchiveVectors(ctx context.Context, embeddingIDs []string) error {
+	if len(embeddingIDs) == 0 || s.archiveVectors == nil {
+		return nil
+	}
+	return s.archiveVectors.DeleteArchives(ctx, embeddingIDs)
 }
 
 func normalizeDeveloperPage(page, size int) (int, int) {
