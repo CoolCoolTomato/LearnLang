@@ -6,6 +6,7 @@ import {
   Languages,
   Pencil,
   Plus,
+  Search,
   Star,
   Trash2,
   Upload,
@@ -42,6 +43,7 @@ import { Pagination } from "./components/pagination"
 import { EmptyState, ErrorState, LoadingState } from "./components/page-state"
 import { VocabularyFormDialog } from "./components/vocabulary-form-dialog"
 import { VocabularyRow } from "./components/vocabulary-row"
+import { VocabularySearch } from "./components/vocabulary-search"
 
 const DEFAULT_PAGE_SIZE = 5
 
@@ -53,6 +55,8 @@ export default function VocabularyPage() {
   const [selectedID, setSelectedID] = React.useState<number | null>(null)
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
+  const [searchQuery, setSearchQuery] = React.useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("")
   const [data, setData] = React.useState<VocabularyPageData | null>(null)
   const [listLoading, setListLoading] = React.useState(true)
   const [entriesLoading, setEntriesLoading] = React.useState(false)
@@ -109,7 +113,12 @@ export default function VocabularyPage() {
     }
     try {
       setEntriesLoading(true)
-      const result = await getVocabularyEntries(selectedID, page, pageSize)
+      const result = await getVocabularyEntries(
+        selectedID,
+        page,
+        pageSize,
+        debouncedSearchQuery
+      )
       if (request !== entriesRequest.current) return
       setData(result)
       setError("")
@@ -123,7 +132,7 @@ export default function VocabularyPage() {
         setEntriesLoading(false)
       }
     }
-  }, [page, pageSize, selectedID, t])
+  }, [debouncedSearchQuery, page, pageSize, selectedID, t])
 
   React.useEffect(() => {
     void entriesVersion
@@ -134,7 +143,16 @@ export default function VocabularyPage() {
     setExpanded(new Set())
     setPage(1)
     setData(null)
+    setSearchQuery("")
+    setDebouncedSearchQuery("")
   }, [selectedID])
+
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 300)
+    return () => window.clearTimeout(timeout)
+  }, [searchQuery])
 
   React.useEffect(() => {
     setExpanded(new Set())
@@ -218,6 +236,8 @@ export default function VocabularyPage() {
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const vocabularyEntryCount = selected?.entry_count ?? 0
+  const hasSearchQuery = debouncedSearchQuery.length > 0
 
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-1">
@@ -243,7 +263,11 @@ export default function VocabularyPage() {
                       <span aria-hidden="true">→</span>
                       {selected.native_language}
                     </span>
-                    <span>{t("vocabulary.entryCount", { count: total })}</span>
+                    <span>
+                      {t("vocabulary.entryCount", {
+                        count: vocabularyEntryCount,
+                      })}
+                    </span>
                   </div>
                 </div>
 
@@ -260,7 +284,7 @@ export default function VocabularyPage() {
                     variant="outline"
                     size="icon"
                     onClick={() => setClearOpen(true)}
-                    disabled={total === 0}
+                    disabled={vocabularyEntryCount === 0}
                     title={t("vocabulary.clear")}
                   >
                     <Eraser />
@@ -279,6 +303,18 @@ export default function VocabularyPage() {
                   </Button>
                 </div>
               </section>
+            ) : null}
+
+            {selected && vocabularyEntryCount > 0 ? (
+              <VocabularySearch
+                value={searchQuery}
+                resultCount={total}
+                onChange={(value) => {
+                  setSearchQuery(value)
+                  setPage(1)
+                  setExpanded(new Set())
+                }}
+              />
             ) : null}
 
             {listLoading ? (
@@ -302,7 +338,7 @@ export default function VocabularyPage() {
               />
             ) : entriesLoading && !data ? (
               <LoadingState label={t("common.loading", "Loading...")} />
-            ) : total === 0 ? (
+            ) : vocabularyEntryCount === 0 ? (
               <EmptyState
                 title={t("vocabulary.emptyTitle", "No vocabulary yet")}
                 description={t("vocabulary.emptyDescription")}
@@ -310,6 +346,19 @@ export default function VocabularyPage() {
                 actionIcon="import"
                 onAction={() => setImportOpen(true)}
               />
+            ) : hasSearchQuery && total === 0 ? (
+              <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+                <Search className="mb-3 size-6 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">
+                  {t("vocabulary.noSearchResultsTitle", "No matching entries")}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t(
+                    "vocabulary.noSearchResultsDescription",
+                    "Try another word or meaning."
+                  )}
+                </p>
+              </div>
             ) : (
               <>
                 <div className="mt-5 overflow-hidden rounded-lg border border-border/70">
@@ -424,7 +473,9 @@ export default function VocabularyPage() {
           <DialogHeader>
             <DialogTitle>{t("vocabulary.clearTitle")}</DialogTitle>
             <DialogDescription>
-              {t("vocabulary.clearDescription", { count: total })}
+              {t("vocabulary.clearDescription", {
+                count: vocabularyEntryCount,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

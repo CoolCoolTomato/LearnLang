@@ -34,10 +34,16 @@ export function deleteVocabulary(vocabularyId: number) {
 export function getVocabularyEntries(
   vocabularyId: number,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  query = ""
 ) {
+  const normalizedQuery = query.trim()
   return http.get<VocabularyPage>(`${basePath}/${vocabularyId}/entries`, {
-    params: { page, page_size: pageSize },
+    params: {
+      page,
+      page_size: pageSize,
+      ...(normalizedQuery ? { query: normalizedQuery } : {}),
+    },
   })
 }
 

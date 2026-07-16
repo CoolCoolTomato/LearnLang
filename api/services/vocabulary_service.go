@@ -300,7 +300,7 @@ func (s *VocabularyService) Clear(ctx context.Context, userID, vocabularyID int6
 	return deleted, err
 }
 
-func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64, page, pageSize int) (*VocabularyEntryPage, error) {
+func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64, page, pageSize int, searchQuery string) (*VocabularyEntryPage, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -309,6 +309,10 @@ func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64,
 	}
 	if pageSize > 100 {
 		pageSize = 100
+	}
+	searchQuery = strings.TrimSpace(searchQuery)
+	if len([]rune(searchQuery)) > 200 {
+		return nil, fmt.Errorf("%w: query is too long", ErrVocabularyInvalidInput)
 	}
 
 	vocabulary, err := findOwnedVocabulary(database.DB.WithContext(ctx), userID, vocabularyID)
@@ -324,6 +328,17 @@ func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64,
 	query := database.DB.WithContext(ctx).
 		Model(&models.VocabularyEntry{}).
 		Where("vocabulary_id = ?", vocabulary.ID)
+	if searchQuery != "" {
+		pattern := "%" + escapeVocabularyLikePattern(searchQuery) + "%"
+		query = query.Where(`(
+			vocabulary_entries.target_text ILIKE ? ESCAPE '\'
+			OR EXISTS (
+				SELECT 1 FROM vocabulary_meanings
+				WHERE vocabulary_meanings.entry_id = vocabulary_entries.id
+				AND vocabulary_meanings.native_text ILIKE ? ESCAPE '\'
+			)
+		)`, pattern, pattern)
+	}
 	if err := query.Count(&result.Total).Error; err != nil {
 		return nil, err
 	}
@@ -340,6 +355,12 @@ func (s *VocabularyService) Get(ctx context.Context, userID, vocabularyID int64,
 		return nil, err
 	}
 	return result, nil
+}
+
+func escapeVocabularyLikePattern(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	value = strings.ReplaceAll(value, `%`, `\%`)
+	return strings.ReplaceAll(value, `_`, `\_`)
 }
 
 func (s *VocabularyService) resolveLanguages(userID int64, targetLanguage, nativeLanguage string) (string, string, error) {

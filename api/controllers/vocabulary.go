@@ -119,7 +119,7 @@ func (vc *VocabularyController) GetEntries(c *gin.Context) {
 		return
 	}
 
-	result, err := vc.vocabularyService.Get(c.Request.Context(), c.GetInt64("user_id"), vocabularyID, page, pageSize)
+	result, err := vc.vocabularyService.Get(c.Request.Context(), c.GetInt64("user_id"), vocabularyID, page, pageSize, c.Query("query"))
 	if err != nil {
 		vc.writeError(c, err)
 		return
