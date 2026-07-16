@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/app-layout'
 const Chat = lazy(() => import('@/app/chat/page'))
 const Setting = lazy(() => import('@/app/setting/page'))
 const Profile = lazy(() => import('@/app/profile/page'))
+const Vocabulary = lazy(() => import('@/app/vocabulary/page'))
 const SignIn = lazy(() => import('@/app/sign-in/page'))
 const SignUp = lazy(() => import('@/app/sign-up/page'))
 const Developer = lazy(() => import('@/app/developer/page'))
@@ -30,6 +31,7 @@ export const routes: RouteConfig[] = [
     ),
     children: [
       { path: "/chat", element: <Chat /> },
+      { path: "/vocabulary", element: <Vocabulary /> },
       { path: "/setting", element: <Setting /> },
       { path: "/profile", element: <Profile /> },
     ]

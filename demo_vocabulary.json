@@ -1,0 +1,229 @@
+{
+  "name": "Everyday English Demo",
+  "target_language": "en-US",
+  "native_language": "zh-CN",
+  "entries": [
+    {
+      "word": "talk",
+      "us": "tɔk",
+      "uk": "tɔːk",
+      "translations": [
+        {
+          "translation": "说话；谈话",
+          "type": "v"
+        },
+        {
+          "translation": "交谈；谈话",
+          "type": "n"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "talk about",
+          "translation": "谈论某事"
+        },
+        {
+          "phrase": "small talk",
+          "translation": "闲聊；寒暄"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "We need to talk about the plan.",
+          "translation": "我们需要谈谈这个计划。"
+        }
+      ],
+      "tags": ["daily", "communication"],
+      "notes": "既可以作动词，也可以作名词。"
+    },
+    {
+      "word": "learn",
+      "us": "lɝn",
+      "uk": "lɜːn",
+      "translations": [
+        {
+          "translation": "学习；学会",
+          "type": "v"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "learn from",
+          "translation": "向……学习；从……中吸取经验"
+        },
+        {
+          "phrase": "learn by heart",
+          "translation": "背诵；记住"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "I am learning English through daily conversations.",
+          "translation": "我正在通过日常对话学习英语。"
+        }
+      ],
+      "tags": ["study", "beginner"]
+    },
+    {
+      "word": "book",
+      "us": "bʊk",
+      "uk": "bʊk",
+      "translations": [
+        {
+          "translation": "书；书籍",
+          "type": "n"
+        },
+        {
+          "translation": "预订",
+          "type": "v"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "book a room",
+          "translation": "预订房间"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "I booked a room for two nights.",
+          "translation": "我预订了一个住两晚的房间。"
+        }
+      ],
+      "tags": ["daily", "travel"]
+    },
+    {
+      "word": "reservation",
+      "us": "ˌrɛzɚˈveɪʃən",
+      "uk": "ˌrezəˈveɪʃən",
+      "translations": [
+        {
+          "translation": "预订；预约",
+          "type": "n"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "make a reservation",
+          "translation": "进行预订"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "I would like to make a reservation for two people.",
+          "translation": "我想预订一个两人位。"
+        }
+      ],
+      "tags": ["travel", "restaurant"]
+    },
+    {
+      "word": "schedule",
+      "pronunciations": [
+        {
+          "pronunciation": "ˈskedʒuːl",
+          "type": "ipa",
+          "region": "us"
+        },
+        {
+          "pronunciation": "ˈʃedjuːl",
+          "type": "ipa",
+          "region": "uk"
+        }
+      ],
+      "translations": [
+        {
+          "translation": "日程；计划表",
+          "type": "n"
+        },
+        {
+          "translation": "安排；预定",
+          "type": "v"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "The meeting is scheduled for Friday morning.",
+          "translation": "会议安排在星期五上午。"
+        }
+      ],
+      "tags": ["work", "planning"]
+    },
+    {
+      "word": "improve",
+      "us": "ɪmˈpruːv",
+      "uk": "ɪmˈpruːv",
+      "translations": [
+        {
+          "translation": "改善；提高",
+          "type": "v"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "improve on",
+          "translation": "改进；做得比……更好"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "Regular practice will improve your pronunciation.",
+          "translation": "经常练习会改善你的发音。"
+        }
+      ],
+      "tags": ["study", "progress"]
+    },
+    {
+      "word": "conversation",
+      "us": "ˌkɑːnvɚˈseɪʃən",
+      "uk": "ˌkɒnvəˈseɪʃən",
+      "translations": [
+        {
+          "translation": "交谈；会话",
+          "type": "n"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "start a conversation",
+          "translation": "开始交谈"
+        },
+        {
+          "phrase": "have a conversation",
+          "translation": "进行交谈"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "We had a long conversation about language learning.",
+          "translation": "我们就语言学习进行了一次长谈。"
+        }
+      ],
+      "tags": ["communication", "speaking"]
+    },
+    {
+      "word": "confident",
+      "us": "ˈkɑːnfɪdənt",
+      "uk": "ˈkɒnfɪdənt",
+      "translations": [
+        {
+          "translation": "自信的；有把握的",
+          "type": "adj"
+        }
+      ],
+      "phrases": [
+        {
+          "phrase": "feel confident",
+          "translation": "感到自信"
+        }
+      ],
+      "sentences": [
+        {
+          "sentence": "She feels more confident when speaking English now.",
+          "translation": "她现在说英语时更自信了。"
+        }
+      ],
+      "tags": ["emotion", "speaking"],
+      "notes": "常与 about、of 或 that 从句搭配。"
+    }
+  ]
+}

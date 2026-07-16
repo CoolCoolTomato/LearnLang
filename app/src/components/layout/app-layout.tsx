@@ -22,6 +22,11 @@ const SIDEBAR_STORAGE_KEY = "learnlang_sidebar_open"
 
 const navigation = [
   { path: "/chat", label: "navigation.chat", icon: MessageCircle },
+  {
+    path: "/vocabulary",
+    label: "navigation.vocabulary",
+    icon: BookOpenText,
+  },
   { path: "/profile", label: "profile.title", icon: UserRound },
   { path: "/setting", label: "settings.title", icon: Settings },
 ]
@@ -79,16 +84,18 @@ export function AppLayout() {
   const pageTitle =
     location.pathname === "/profile"
       ? t("profile.title", "Profile")
-      : location.pathname === "/setting"
-        ? t("settings.title", "Settings")
-        : "LearnLang"
+      : location.pathname === "/vocabulary"
+        ? t("vocabulary.title", "Vocabulary")
+        : location.pathname === "/setting"
+          ? t("settings.title", "Settings")
+          : "LearnLang"
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-sidebar">
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/35 animate-in fade-in duration-200 md:hidden"
+          className="fixed inset-0 z-40 animate-in bg-black/35 duration-200 fade-in md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-label={t("navigation.close", "Close sidebar")}
         />
@@ -155,7 +162,14 @@ export function AppLayout() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            location.pathname === "/chat" || location.pathname === "/vocabulary"
+              ? "overflow-hidden"
+              : "overflow-auto"
+          )}
+        >
           <Outlet context={{ setChatConnected }} />
         </div>
       </main>
@@ -217,35 +231,7 @@ function AppSidebar({
           className="flex flex-col gap-1"
           aria-label={t("navigation.main", "Main navigation")}
         >
-          <SidebarLink
-            item={navigation[0]}
-            expanded={expanded}
-            onNavigate={mobile ? closeMobile : undefined}
-          />
-          <button
-            type="button"
-            disabled
-            title={
-              !expanded ? t("navigation.vocabulary", "Vocabulary") : undefined
-            }
-            className={cn(
-              "flex h-8 w-full items-center overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground/45",
-              expanded ? "gap-2" : "justify-center"
-            )}
-          >
-            <BookOpenText className="size-4 shrink-0" />
-            {expanded ? (
-              <>
-                <span className="truncate">
-                  {t("navigation.vocabulary", "Vocabulary")}
-                </span>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {t("navigation.comingSoon", "Soon")}
-                </span>
-              </>
-            ) : null}
-          </button>
-          {navigation.slice(1).map((item) => (
+          {navigation.map((item) => (
             <SidebarLink
               key={item.path}
               item={item}
@@ -335,7 +321,7 @@ function AppSidebar({
       </div>
 
       {mobileOpen ? (
-        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200 md:hidden">
+        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 animate-in flex-col bg-sidebar text-sidebar-foreground shadow-xl duration-200 slide-in-from-left md:hidden">
           {sidebarContent(true, true)}
         </aside>
       ) : null}
