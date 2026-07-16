@@ -5,6 +5,7 @@ import type {
   Vocabulary,
   VocabularyInput,
   VocabularyPage,
+  VocabularyLookupResult,
   VocabularySummary,
   VocabularyUpdateInput,
 } from "@/types/vocabulary"
@@ -52,4 +53,10 @@ export function clearVocabulary(vocabularyId: number) {
   return http.delete<VocabularyClearResult>(
     `${basePath}/${vocabularyId}/entries`
   )
+}
+
+export function lookupMessageVocabulary(messageId: number) {
+  return http.post<VocabularyLookupResult>(`${basePath}/lookup`, {
+    message_id: messageId,
+  })
 }

@@ -11,6 +11,7 @@ import type { ChatMessage } from "@/types/chat"
 import { VoicePlayer } from "./voice-player"
 import { useAuth } from "@/contexts/auth-context"
 import { resolveAvatarUrl } from "@/api/profile"
+import { MessageVocabularyText } from "./message-vocabulary-text"
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -169,11 +170,20 @@ export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMor
                 {message.voice_file && (
                   <VoicePlayer voiceFile={message.voice_file} role={message.role === "user" ? "user" : "assistant"} />
                 )}
-                <div className="text-sm">
-                  {showTranslation[message.id] && message.translation
-                    ? message.translation
-                    : message.text_content}
+                <div
+                  className={cn(
+                    showTranslation[message.id] && message.translation
+                      ? "hidden"
+                      : "block"
+                  )}
+                >
+                  <MessageVocabularyText message={message} />
                 </div>
+                {showTranslation[message.id] && message.translation ? (
+                  <div className="text-sm whitespace-pre-wrap break-words">
+                    {message.translation}
+                  </div>
+                ) : null}
                 {message.created_at && (
                   <div className="text-xs opacity-70 mt-1">
                     {format(new Date(message.created_at), "HH:mm")}
