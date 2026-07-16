@@ -20,6 +20,7 @@ func Migrate() error {
 		&models.VocabularyMeaning{},
 		&models.VocabularyExample{},
 		&models.VocabularyEntryRelation{},
+		&models.VocabularyAgentSelection{},
 	)
 	if err != nil {
 		return err

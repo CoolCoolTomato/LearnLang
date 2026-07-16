@@ -1,5 +1,7 @@
 package tools
 
+import "sync"
+
 type ChatResult struct {
 	ReplySentences   []Sentence `json:"reply_sentences"`
 	DetectedLanguage string     `json:"detected_language"`
@@ -13,7 +15,9 @@ type Sentence struct {
 }
 
 type TurnState struct {
-	result ChatResult
+	mu                    sync.Mutex
+	result                ChatResult
+	vocabularyToolResults map[string]string
 }
 
 func NewTurnState() *TurnState {
@@ -22,15 +26,22 @@ func NewTurnState() *TurnState {
 			ReplySentences: []Sentence{},
 			MessageIDs:     []int64{},
 		},
+		vocabularyToolResults: make(map[string]string),
 	}
 }
 
 func (s *TurnState) Result() *ChatResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	result := s.result
+	result.ReplySentences = append([]Sentence(nil), s.result.ReplySentences...)
+	result.MessageIDs = append([]int64(nil), s.result.MessageIDs...)
 	return &result
 }
 
 func (s *TurnState) AddReply(original, translation string, messageID int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.result.ReplySentences = append(s.result.ReplySentences, Sentence{
 		Original:    original,
 		Translation: translation,
@@ -39,5 +50,22 @@ func (s *TurnState) AddReply(original, translation string, messageID int64) {
 }
 
 func (s *TurnState) Complete(detectedLanguage string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.result.DetectedLanguage = detectedLanguage
+}
+
+func (s *TurnState) VocabularyToolResult(selectionType string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result, ok := s.vocabularyToolResults[selectionType]
+	return result, ok
+}
+
+func (s *TurnState) SetVocabularyToolResult(selectionType, result string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.vocabularyToolResults[selectionType]; !exists {
+		s.vocabularyToolResults[selectionType] = result
+	}
 }
