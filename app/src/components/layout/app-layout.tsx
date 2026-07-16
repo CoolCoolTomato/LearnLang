@@ -84,11 +84,11 @@ export function AppLayout() {
         : "LearnLang"
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background">
+    <div className="flex h-dvh w-full overflow-hidden bg-sidebar">
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/35 md:hidden"
+          className="fixed inset-0 z-40 bg-black/35 animate-in fade-in duration-200 md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-label={t("navigation.close", "Close sidebar")}
         />
@@ -102,7 +102,13 @@ export function AppLayout() {
         onLogout={handleLogout}
       />
 
-      <main className="relative flex min-w-0 flex-1 flex-col bg-background">
+      <main
+        className={cn(
+          "relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background transition-[margin,border-radius] duration-200 ease-linear",
+          "md:m-2 md:ml-0 md:rounded-xl md:shadow-sm",
+          !desktopOpen && "md:ml-2"
+        )}
+      >
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 px-4">
           <Button
             type="button"
@@ -301,29 +307,35 @@ function AppSidebar({
 
   return (
     <>
-      <aside
+      <div
         className={cn(
-          "group relative hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear md:flex",
-          desktopOpen ? "w-64" : "w-12"
+          "relative hidden h-full shrink-0 transition-[width] duration-200 ease-linear md:block",
+          desktopOpen ? "w-64" : "w-0"
         )}
         data-state={desktopOpen ? "expanded" : "collapsed"}
       >
-        {sidebarContent(desktopOpen)}
-        <button
-          type="button"
-          tabIndex={-1}
+        <aside
           className={cn(
-            "absolute inset-y-0 -right-2 z-20 hidden w-4 after:absolute after:inset-y-0 after:left-1/2 after:w-px hover:after:bg-sidebar-border sm:block",
-            desktopOpen ? "cursor-w-resize" : "cursor-e-resize"
+            "fixed inset-y-0 z-30 hidden h-svh w-64 p-2 text-sidebar-foreground transition-[left] duration-200 ease-linear md:flex",
+            desktopOpen ? "left-0" : "-left-64"
           )}
-          onClick={toggleDesktop}
-          aria-label={t("navigation.toggle", "Toggle sidebar")}
-          title={t("navigation.toggle", "Toggle sidebar")}
-        />
-      </aside>
+        >
+          <div className="relative flex h-full w-full flex-col bg-sidebar">
+            {sidebarContent(true)}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="absolute inset-y-0 -right-4 z-20 hidden w-4 cursor-w-resize after:absolute after:inset-y-0 after:left-1/2 after:w-px hover:after:bg-sidebar-border sm:block"
+              onClick={toggleDesktop}
+              aria-label={t("navigation.toggle", "Toggle sidebar")}
+              title={t("navigation.toggle", "Toggle sidebar")}
+            />
+          </div>
+        </aside>
+      </div>
 
       {mobileOpen ? (
-        <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl md:hidden">
+        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200 md:hidden">
           {sidebarContent(true, true)}
         </aside>
       ) : null}
