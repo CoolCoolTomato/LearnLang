@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"learnlang-api/services"
@@ -80,7 +78,7 @@ func (vc *VocabularyController) Import(c *gin.Context) {
 	}
 	input, err := decodeVocabularyImport(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "A vocabulary import object is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -95,30 +93,10 @@ func (vc *VocabularyController) Import(c *gin.Context) {
 func decodeVocabularyImport(c *gin.Context) (*services.VocabularyImportInput, error) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 20<<20)
 	body, err := io.ReadAll(c.Request.Body)
-	if err != nil || len(bytes.TrimSpace(body)) == 0 {
-		return nil, errors.New("empty import body")
-	}
-
-	var input services.VocabularyImportInput
-	if bytes.HasPrefix(bytes.TrimSpace(body), []byte("[")) {
-		if err := json.Unmarshal(body, &input.Entries); err != nil {
-			return nil, err
-		}
-		return &input, nil
-	}
-	if err := json.Unmarshal(body, &input); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	if len(input.Entries) > 0 {
-		return &input, nil
-	}
-
-	var entry services.VocabularyImportEntry
-	if err := json.Unmarshal(body, &entry); err != nil || entry.Word == "" {
-		return nil, errors.New("invalid import body")
-	}
-	input.Entries = []services.VocabularyImportEntry{entry}
-	return &input, nil
+	return services.DecodeVocabularyImport(body)
 }
 
 func (vc *VocabularyController) GetEntries(c *gin.Context) {

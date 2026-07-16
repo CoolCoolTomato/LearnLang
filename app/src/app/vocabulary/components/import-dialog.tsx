@@ -233,16 +233,13 @@ export function ImportDialog({
 }
 
 function buildImportPayload(parsed: unknown) {
-  if (Array.isArray(parsed)) {
-    return { entries: parsed }
-  }
-  if (typeof parsed !== "object" || parsed === null) {
+  if (
+    !Array.isArray(parsed) &&
+    (typeof parsed !== "object" || parsed === null)
+  ) {
     throw new Error("JSON must contain a vocabulary object or array")
   }
-  if ("entries" in parsed && Array.isArray(parsed.entries)) {
-    return { entries: parsed.entries }
-  }
-  return { entries: [parsed] }
+  return parsed
 }
 
 function formatFileSize(size: number) {

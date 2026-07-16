@@ -1,0 +1,72 @@
+{
+  "format": "learnlang-vocabulary",
+  "version": 1,
+  "target_language": "ja-JP",
+  "native_language": "zh-CN",
+  "entries": [
+    {
+      "target_text": "話す",
+      "entry_type": "word",
+      "pronunciations": [
+        {
+          "pronunciation": "はなす",
+          "type": "kana",
+          "region": "",
+          "audio_url": ""
+        }
+      ],
+      "meanings": [
+        {
+          "native_text": "说；交谈",
+          "part_of_speech": "verb"
+        }
+      ],
+      "related_phrases": [
+        {
+          "target_text": "日本語で話す",
+          "meanings": [
+            {
+              "native_text": "用日语交谈",
+              "part_of_speech": "phrase"
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "target_text": "友達と日本語で話します。",
+          "native_text": "我和朋友用日语交谈。"
+        }
+      ],
+      "tags": ["daily", "communication"],
+      "notes": "五段动词。"
+    },
+    {
+      "target_text": "本",
+      "entry_type": "word",
+      "pronunciations": [
+        {
+          "pronunciation": "ほん",
+          "type": "kana",
+          "region": "",
+          "audio_url": ""
+        }
+      ],
+      "meanings": [
+        {
+          "native_text": "书；书籍",
+          "part_of_speech": "noun"
+        }
+      ],
+      "related_phrases": [],
+      "examples": [
+        {
+          "target_text": "この本は面白いです。",
+          "native_text": "这本书很有趣。"
+        }
+      ],
+      "tags": ["beginner"],
+      "notes": ""
+    }
+  ]
+}

@@ -30,10 +30,6 @@ type VocabularyService struct {
 	userSettingsService *UserSettingsService
 }
 
-type VocabularyImportInput struct {
-	Entries []VocabularyImportEntry `json:"entries"`
-}
-
 type VocabularyCreateInput struct {
 	Name           string `json:"name"`
 	TargetLanguage string `json:"target_language"`
@@ -46,41 +42,6 @@ type VocabularyUpdateInput struct {
 	TargetLanguage *string `json:"target_language"`
 	NativeLanguage *string `json:"native_language"`
 	IsDefault      *bool   `json:"is_default"`
-}
-
-type VocabularyImportEntry struct {
-	Word           string                          `json:"word"`
-	US             string                          `json:"us"`
-	UK             string                          `json:"uk"`
-	Pronunciations []VocabularyImportPronunciation `json:"pronunciations"`
-	Translations   []VocabularyImportTranslation   `json:"translations"`
-	Phrases        []VocabularyImportPhrase        `json:"phrases"`
-	Sentences      []VocabularyImportSentence      `json:"sentences"`
-	Tags           []string                        `json:"tags"`
-	Notes          string                          `json:"notes"`
-}
-
-type VocabularyImportPronunciation struct {
-	Pronunciation     string `json:"pronunciation"`
-	PronunciationType string `json:"type"`
-	Region            string `json:"region"`
-	AudioURL          string `json:"audio_url"`
-}
-
-type VocabularyImportTranslation struct {
-	Translation string `json:"translation"`
-	Type        string `json:"type"`
-}
-
-type VocabularyImportPhrase struct {
-	Phrase      string `json:"phrase"`
-	Translation string `json:"translation"`
-	Type        string `json:"type"`
-}
-
-type VocabularyImportSentence struct {
-	Sentence    string `json:"sentence"`
-	Translation string `json:"translation"`
 }
 
 type VocabularyImportResult struct {
@@ -297,6 +258,12 @@ func (s *VocabularyService) Import(ctx context.Context, userID, vocabularyID int
 		if err != nil {
 			return err
 		}
+		if input.TargetLanguage != "" && !strings.EqualFold(input.TargetLanguage, vocabulary.TargetLanguage) {
+			return fmt.Errorf("%w: file target_language %q does not match vocabulary target language %q", ErrVocabularyInvalidImport, input.TargetLanguage, vocabulary.TargetLanguage)
+		}
+		if input.NativeLanguage != "" && !strings.EqualFold(input.NativeLanguage, vocabulary.NativeLanguage) {
+			return fmt.Errorf("%w: file native_language %q does not match vocabulary native language %q", ErrVocabularyInvalidImport, input.NativeLanguage, vocabulary.NativeLanguage)
+		}
 
 		for index := range input.Entries {
 			if err := importVocabularyEntry(tx, vocabulary.ID, vocabulary.TargetLanguage, vocabulary.NativeLanguage, input.Entries[index], result); err != nil {
@@ -403,21 +370,25 @@ func validateVocabularyImport(input VocabularyImportInput) error {
 	}
 	totalEntries := len(input.Entries)
 	for index, entry := range input.Entries {
-		if strings.TrimSpace(entry.Word) == "" {
-			return fmt.Errorf("%w: entries[%d].word is required", ErrVocabularyInvalidImport, index)
+		if strings.TrimSpace(entry.TargetText) == "" {
+			return fmt.Errorf("%w: entries[%d].target text is required", ErrVocabularyInvalidImport, index)
 		}
-		if len([]rune(strings.TrimSpace(entry.Word))) > 500 {
-			return fmt.Errorf("%w: entries[%d].word is too long", ErrVocabularyInvalidImport, index)
+		if len([]rune(strings.TrimSpace(entry.TargetText))) > 500 {
+			return fmt.Errorf("%w: entries[%d].target text is too long", ErrVocabularyInvalidImport, index)
 		}
-		if len(entry.Translations) == 0 {
-			return fmt.Errorf("%w: entries[%d].translations is required", ErrVocabularyInvalidImport, index)
+		entryType := strings.TrimSpace(entry.EntryType)
+		if entryType != "" && entryType != models.VocabularyEntryTypeWord && entryType != models.VocabularyEntryTypePhrase {
+			return fmt.Errorf("%w: entries[%d].entry_type must be word or phrase", ErrVocabularyInvalidImport, index)
 		}
-		for translationIndex, translation := range entry.Translations {
-			if strings.TrimSpace(translation.Translation) == "" {
-				return fmt.Errorf("%w: entries[%d].translations[%d].translation is required", ErrVocabularyInvalidImport, index, translationIndex)
+		if len(entry.Meanings) == 0 {
+			return fmt.Errorf("%w: entries[%d].meanings are required", ErrVocabularyInvalidImport, index)
+		}
+		for meaningIndex, meaning := range entry.Meanings {
+			if strings.TrimSpace(meaning.NativeText) == "" {
+				return fmt.Errorf("%w: entries[%d].meanings[%d].native text is required", ErrVocabularyInvalidImport, index, meaningIndex)
 			}
-			if len([]rune(strings.TrimSpace(translation.Type))) > 64 {
-				return fmt.Errorf("%w: entries[%d].translations[%d].type is too long", ErrVocabularyInvalidImport, index, translationIndex)
+			if len([]rune(strings.TrimSpace(meaning.PartOfSpeech))) > 64 {
+				return fmt.Errorf("%w: entries[%d].meanings[%d].part_of_speech is too long", ErrVocabularyInvalidImport, index, meaningIndex)
 			}
 		}
 		for pronunciationIndex, pronunciation := range entry.Pronunciations {
@@ -428,20 +399,25 @@ func validateVocabularyImport(input VocabularyImportInput) error {
 				return fmt.Errorf("%w: entries[%d].pronunciations[%d] type or region is too long", ErrVocabularyInvalidImport, index, pronunciationIndex)
 			}
 		}
-		for phraseIndex, phrase := range entry.Phrases {
-			if strings.TrimSpace(phrase.Phrase) == "" || strings.TrimSpace(phrase.Translation) == "" {
-				return fmt.Errorf("%w: entries[%d].phrases[%d] requires phrase and translation", ErrVocabularyInvalidImport, index, phraseIndex)
+		for phraseIndex, phrase := range entry.RelatedPhrases {
+			if strings.TrimSpace(phrase.TargetText) == "" || len(phrase.Meanings) == 0 {
+				return fmt.Errorf("%w: entries[%d].related_phrases[%d] requires target_text and meanings", ErrVocabularyInvalidImport, index, phraseIndex)
 			}
-			if len([]rune(strings.TrimSpace(phrase.Phrase))) > 500 || len([]rune(strings.TrimSpace(phrase.Type))) > 64 {
-				return fmt.Errorf("%w: entries[%d].phrases[%d] phrase or type is too long", ErrVocabularyInvalidImport, index, phraseIndex)
+			if len([]rune(strings.TrimSpace(phrase.TargetText))) > 500 {
+				return fmt.Errorf("%w: entries[%d].related_phrases[%d].target_text is too long", ErrVocabularyInvalidImport, index, phraseIndex)
+			}
+			for meaningIndex, meaning := range phrase.Meanings {
+				if strings.TrimSpace(meaning.NativeText) == "" || len([]rune(strings.TrimSpace(meaning.PartOfSpeech))) > 64 {
+					return fmt.Errorf("%w: entries[%d].related_phrases[%d].meanings[%d] is invalid", ErrVocabularyInvalidImport, index, phraseIndex, meaningIndex)
+				}
 			}
 		}
-		for sentenceIndex, sentence := range entry.Sentences {
-			if strings.TrimSpace(sentence.Sentence) == "" {
-				return fmt.Errorf("%w: entries[%d].sentences[%d].sentence is required", ErrVocabularyInvalidImport, index, sentenceIndex)
+		for exampleIndex, example := range entry.Examples {
+			if strings.TrimSpace(example.TargetText) == "" {
+				return fmt.Errorf("%w: entries[%d].examples[%d].target_text is required", ErrVocabularyInvalidImport, index, exampleIndex)
 			}
 		}
-		totalEntries += len(entry.Phrases)
+		totalEntries += len(entry.RelatedPhrases)
 	}
 	if totalEntries > maxVocabularyImportEntries {
 		return fmt.Errorf("%w: import cannot exceed %d words and phrases", ErrVocabularyInvalidImport, maxVocabularyImportEntries)
@@ -490,7 +466,11 @@ func ensureVocabularyNameAvailable(tx *gorm.DB, userID int64, name string, exclu
 }
 
 func importVocabularyEntry(tx *gorm.DB, vocabularyID int64, targetLanguage, nativeLanguage string, input VocabularyImportEntry, result *VocabularyImportResult) error {
-	entry, created, err := upsertVocabularyEntry(tx, vocabularyID, targetLanguage, models.VocabularyEntryTypeWord, input.Word, input.Tags, input.Notes)
+	entryType := strings.TrimSpace(input.EntryType)
+	if entryType == "" {
+		entryType = models.VocabularyEntryTypeWord
+	}
+	entry, created, err := upsertVocabularyEntry(tx, vocabularyID, targetLanguage, entryType, input.TargetText, input.Tags, input.Notes)
 	if err != nil {
 		return err
 	}
@@ -500,25 +480,18 @@ func importVocabularyEntry(tx *gorm.DB, vocabularyID int64, targetLanguage, nati
 		result.EntriesUpdated++
 	}
 
-	if err := mergeMeanings(tx, entry.ID, nativeLanguage, input.Translations, result); err != nil {
+	if err := mergeMeanings(tx, entry.ID, nativeLanguage, input.Meanings, result); err != nil {
 		return err
 	}
-	pronunciations := append([]VocabularyImportPronunciation(nil), input.Pronunciations...)
-	if strings.TrimSpace(input.US) != "" {
-		pronunciations = append(pronunciations, VocabularyImportPronunciation{Pronunciation: input.US, PronunciationType: "ipa", Region: "us"})
-	}
-	if strings.TrimSpace(input.UK) != "" {
-		pronunciations = append(pronunciations, VocabularyImportPronunciation{Pronunciation: input.UK, PronunciationType: "ipa", Region: "uk"})
-	}
-	if err := mergePronunciations(tx, entry.ID, pronunciations, result); err != nil {
+	if err := mergePronunciations(tx, entry.ID, input.Pronunciations, result); err != nil {
 		return err
 	}
-	if err := mergeExamples(tx, entry.ID, input.Sentences, result); err != nil {
+	if err := mergeExamples(tx, entry.ID, input.Examples, result); err != nil {
 		return err
 	}
 
-	for _, phrase := range input.Phrases {
-		phraseEntry, phraseCreated, err := upsertVocabularyEntry(tx, vocabularyID, targetLanguage, models.VocabularyEntryTypePhrase, phrase.Phrase, nil, "")
+	for _, phrase := range input.RelatedPhrases {
+		phraseEntry, phraseCreated, err := upsertVocabularyEntry(tx, vocabularyID, targetLanguage, models.VocabularyEntryTypePhrase, phrase.TargetText, nil, "")
 		if err != nil {
 			return err
 		}
@@ -527,7 +500,7 @@ func importVocabularyEntry(tx *gorm.DB, vocabularyID int64, targetLanguage, nati
 		} else {
 			result.EntriesUpdated++
 		}
-		if err := mergeMeanings(tx, phraseEntry.ID, nativeLanguage, []VocabularyImportTranslation{{Translation: phrase.Translation, Type: phrase.Type}}, result); err != nil {
+		if err := mergeMeanings(tx, phraseEntry.ID, nativeLanguage, phrase.Meanings, result); err != nil {
 			return err
 		}
 		if phraseEntry.ID != entry.ID {
@@ -595,18 +568,18 @@ func upsertVocabularyEntry(tx *gorm.DB, vocabularyID int64, targetLanguage, entr
 	return &entry, false, nil
 }
 
-func mergeMeanings(tx *gorm.DB, entryID int64, nativeLanguage string, translations []VocabularyImportTranslation, result *VocabularyImportResult) error {
+func mergeMeanings(tx *gorm.DB, entryID int64, nativeLanguage string, meanings []VocabularyImportMeaning, result *VocabularyImportResult) error {
 	var existing []models.VocabularyMeaning
 	if err := tx.Where("entry_id = ?", entryID).Find(&existing).Error; err != nil {
 		return err
 	}
-	seen := make(map[string]struct{}, len(existing)+len(translations))
+	seen := make(map[string]struct{}, len(existing)+len(meanings))
 	for _, meaning := range existing {
 		seen[meaningKey(meaning.NativeText, meaning.PartOfSpeech, meaning.NativeLanguage)] = struct{}{}
 	}
-	for _, translation := range translations {
-		nativeText := strings.TrimSpace(translation.Translation)
-		partOfSpeech := strings.TrimSpace(translation.Type)
+	for _, input := range meanings {
+		nativeText := strings.TrimSpace(input.NativeText)
+		partOfSpeech := strings.TrimSpace(input.PartOfSpeech)
 		key := meaningKey(nativeText, partOfSpeech, nativeLanguage)
 		if _, ok := seen[key]; ok {
 			continue
@@ -675,18 +648,18 @@ func mergePronunciations(tx *gorm.DB, entryID int64, pronunciations []Vocabulary
 	return nil
 }
 
-func mergeExamples(tx *gorm.DB, entryID int64, sentences []VocabularyImportSentence, result *VocabularyImportResult) error {
+func mergeExamples(tx *gorm.DB, entryID int64, examples []VocabularyImportExample, result *VocabularyImportResult) error {
 	var existing []models.VocabularyExample
 	if err := tx.Where("entry_id = ?", entryID).Find(&existing).Error; err != nil {
 		return err
 	}
-	seen := make(map[string]struct{}, len(existing)+len(sentences))
+	seen := make(map[string]struct{}, len(existing)+len(examples))
 	for _, example := range existing {
 		seen[exampleKey(example.TargetText, example.NativeText)] = struct{}{}
 	}
-	for _, sentence := range sentences {
-		targetText := strings.TrimSpace(sentence.Sentence)
-		nativeText := strings.TrimSpace(sentence.Translation)
+	for _, input := range examples {
+		targetText := strings.TrimSpace(input.TargetText)
+		nativeText := strings.TrimSpace(input.NativeText)
 		key := exampleKey(targetText, nativeText)
 		if _, ok := seen[key]; ok {
 			continue
