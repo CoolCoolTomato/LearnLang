@@ -1,5 +1,4 @@
 import * as React from "react"
-import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ModelCombobox } from "@/components/ui/model-combobox"
@@ -25,7 +24,6 @@ import {
   Mic,
   Volume2,
   Save,
-  ArrowLeft,
   SettingsIcon,
 } from "lucide-react"
 
@@ -45,7 +43,6 @@ import { ProviderModelSection } from "./components/provider-model-section"
 
 export default function Page() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
 
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
@@ -233,18 +230,7 @@ export default function Page() {
     <div className="relative min-h-full bg-background">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
         <div className="rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm backdrop-blur">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/chat")}
-            className="h-8 w-15 text-muted-foreground"
-            aria-label={t("common.back")}
-            title={t("common.back")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="ml-0.5">{t("common.back")}</span>
-          </Button>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-muted/40">

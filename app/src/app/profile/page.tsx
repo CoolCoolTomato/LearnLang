@@ -1,13 +1,5 @@
 import * as React from "react"
-import { useNavigate } from "react-router-dom"
-import {
-  ArrowLeft,
-  ImagePlus,
-  KeyRound,
-  Save,
-  Upload,
-  UserRound,
-} from "lucide-react"
+import { ImagePlus, KeyRound, Save, Upload, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -52,7 +44,6 @@ const emptyPasswordForm: PasswordFormData = {
 
 export default function ProfilePage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { setUser } = useAuth()
 
   const [loading, setLoading] = React.useState(true)
@@ -270,17 +261,6 @@ export default function ProfilePage() {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
         <div className="rounded-2xl border border-border/60 bg-background/80 p-5 shadow-sm backdrop-blur">
           <div className="grid gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/chat")}
-              className="h-8 w-15 text-muted-foreground"
-              aria-label={t("common.back")}
-              title={t("common.back")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="ml-0.5">{t("common.back")}</span>
-            </Button>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-muted/40">

@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 function renderRoutes(routeConfigs: RouteConfig[]) {
   return routeConfigs.map((route, index) => (
     <Route
-      key={route.path + index}
+      key={(route.path || "layout") + index}
       path={route.path}
       element={
         <Suspense fallback={<LoadingSpinner />}>

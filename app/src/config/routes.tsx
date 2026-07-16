@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/router/protected-route'
+import { AppLayout } from '@/components/layout/app-layout'
 
 const Chat = lazy(() => import('@/app/chat/page'))
 const Setting = lazy(() => import('@/app/setting/page'))
@@ -11,7 +12,7 @@ const Developer = lazy(() => import('@/app/developer/page'))
 const DeveloperResource = lazy(() => import('@/app/developer/resource-page'))
 
 export interface RouteConfig {
-  path: string
+  path?: string
   element: React.ReactNode
   children?: RouteConfig[]
 }
@@ -22,28 +23,16 @@ export const routes: RouteConfig[] = [
     element: <Navigate to="/chat" replace />
   },
   {
-    path: "/chat",
     element: (
       <ProtectedRoute>
-        <Chat />
+        <AppLayout />
       </ProtectedRoute>
-    )
-  },
-  {
-    path: "/setting",
-    element: (
-      <ProtectedRoute>
-        <Setting />
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/profile",
-    element: (
-      <ProtectedRoute>
-        <Profile />
-      </ProtectedRoute>
-    )
+    ),
+    children: [
+      { path: "/chat", element: <Chat /> },
+      { path: "/setting", element: <Setting /> },
+      { path: "/profile", element: <Profile /> },
+    ]
   },
   {
     path: "/sign-in",
