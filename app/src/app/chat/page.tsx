@@ -5,11 +5,12 @@ import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { MessageList } from "./components/message-list"
 import { MessageInput } from "./components/message-input"
-import { ChatHeader } from "./components/chat-header"
 import { getChatHistory, sendChatMessage, sendVoiceMessage } from "@/api/chat"
 import type { ChatMessage } from "@/types/chat"
 import { API_CONFIG, TOKEN_KEY } from "@/api/config"
 import { getErrorMessage } from "@/lib/error"
+import { useOutletContext } from "react-router-dom"
+import type { AppLayoutOutletContext } from "@/components/layout/app-layout"
 
 export default function ChatPage() {
   const { t } = useTranslation()
@@ -19,6 +20,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
+  const { setChatConnected } = useOutletContext<AppLayoutOutletContext>()
 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -109,6 +111,11 @@ export default function ChatPage() {
     }
   }, [connectWebSocket, loadInitialMessages])
 
+  useEffect(() => {
+    setChatConnected(wsConnected)
+    return () => setChatConnected(null)
+  }, [setChatConnected, wsConnected])
+
   const loadMoreMessages = async () => {
     if (loadingMore || !hasMore || messages.length === 0) return
 
@@ -150,13 +157,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <ChatHeader
-        title="LearnLang"
-        subtitle={t("chat.headerSubtitle", "Your AI language partner")}
-        connected={wsConnected}
-      />
-
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <div className="min-h-0 flex-1">
         <MessageList
           messages={messages}

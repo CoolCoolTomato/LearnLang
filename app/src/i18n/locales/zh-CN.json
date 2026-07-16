@@ -58,6 +58,14 @@
         "connected": "在线",
         "disconnected": "离线"
     },
+    "navigation": {
+        "main": "主要导航",
+        "chat": "对话",
+        "vocabulary": "词库",
+        "comingSoon": "即将推出",
+        "toggle": "切换侧栏",
+        "close": "关闭侧栏"
+    },
     "landing": {
         "tagline": "更智能的语言学习，更自然的对话",
         "subtitle": "AI 语言伙伴",

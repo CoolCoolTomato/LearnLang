@@ -58,6 +58,14 @@
         "connected": "Online",
         "disconnected": "Offline"
     },
+    "navigation": {
+        "main": "Main navigation",
+        "chat": "Chat",
+        "vocabulary": "Vocabulary",
+        "comingSoon": "Soon",
+        "toggle": "Toggle sidebar",
+        "close": "Close sidebar"
+    },
     "landing": {
         "tagline": "Smarter language learning, more natural conversations",
         "subtitle": "AI Language Partner",
