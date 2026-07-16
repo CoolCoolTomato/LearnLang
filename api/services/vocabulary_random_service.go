@@ -11,7 +11,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const maxAgentRelatedPhrases = 20
+const (
+	maxAgentRelatedPhrases  = 20
+	MaxAgentVocabularyWords = 5
+)
 
 type VocabularyRandomEntry struct {
 	Vocabulary         models.Vocabulary      `json:"vocabulary"`
@@ -19,97 +22,137 @@ type VocabularyRandomEntry struct {
 	RelatedPhraseCount int64                  `json:"related_phrase_count"`
 }
 
-func (s *VocabularyService) TakeRandomNewWord(ctx context.Context, userID int64, targetLanguage, nativeLanguage string) (*VocabularyRandomEntry, error) {
-	var result *VocabularyRandomEntry
+type VocabularyAgentSelectionResult struct {
+	RequestedCount int
+	Entries        []VocabularyRandomEntry
+}
+
+func (s *VocabularyService) SelectAgentVocabularyWords(ctx context.Context, userID, requestMessageID int64, selectionType, targetLanguage, nativeLanguage string, count int) (*VocabularyAgentSelectionResult, error) {
+	if requestMessageID <= 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if selectionType != models.VocabularyAgentSelectionNew && selectionType != models.VocabularyAgentSelectionOld {
+		return nil, gorm.ErrInvalidData
+	}
+	if count < 1 {
+		count = 1
+	}
+	if count > MaxAgentVocabularyWords {
+		count = MaxAgentVocabularyWords
+	}
+
+	result := &VocabularyAgentSelectionResult{}
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		vocabularies, err := findUserLanguageVocabularies(tx, userID, targetLanguage, nativeLanguage)
-		if err != nil || len(vocabularies) == 0 {
-			return err
+		// The request message is the transaction lock shared by interrupted or concurrent retries.
+		var message models.Message
+		messageQuery := tx.Select("id").
+			Where("id = ? AND user_id = ?", requestMessageID, userID).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Find(&message)
+		if messageQuery.Error != nil {
+			return messageQuery.Error
 		}
-
-		var entry models.VocabularyEntry
-		query := tx.
-			Where("vocabulary_id IN ? AND entry_type = ? AND encountered = ?", vocabularyIDs(vocabularies), models.VocabularyEntryTypeWord, false).
-			Order("RANDOM()").
-			Limit(1).
-			Clauses(clause.Locking{
-				Strength: "UPDATE",
-				Table:    clause.Table{Name: clause.CurrentTable},
-				Options:  "SKIP LOCKED",
-			})
-		operation := query.Find(&entry)
-		if operation.Error != nil {
-			return operation.Error
-		}
-		if operation.RowsAffected == 0 {
-			return nil
-		}
-		entryID := entry.ID
-
-		now := time.Now().UTC()
-		update := tx.Model(&models.VocabularyEntry{}).
-			Where("id = ? AND encountered = ?", entryID, false).
-			Updates(map[string]any{
-				"encountered":          true,
-				"encounter_count":      gorm.Expr("encounter_count + 1"),
-				"first_encountered_at": gorm.Expr("COALESCE(first_encountered_at, ?)", now),
-				"last_encountered_at":  now,
-			})
-		if update.Error != nil {
-			return update.Error
-		}
-		if update.RowsAffected != 1 {
+		if messageQuery.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		entry = models.VocabularyEntry{}
-		detailQuery := preloadRandomVocabularyEntry(tx.Where("id = ?", entryID))
-		if err := detailQuery.First(&entry).Error; err != nil {
-			return err
+
+		var selection models.VocabularyAgentSelection
+		selectionQuery := tx.Where("user_id = ? AND request_message_id = ? AND selection_type = ?", userID, requestMessageID, selectionType).
+			Limit(1).
+			Find(&selection)
+		if selectionQuery.Error != nil {
+			return selectionQuery.Error
 		}
-		relatedPhraseCount, err := countVocabularyEntryPhrases(tx, entry.ID)
+		if selectionQuery.RowsAffected > 0 {
+			result.RequestedCount = selection.RequestedCount
+			var loadErr error
+			result.Entries, loadErr = loadVocabularyRandomEntries(tx, userID, selection.EntryIDs)
+			return loadErr
+		}
+
+		vocabularies, err := findUserLanguageVocabularies(tx, userID, targetLanguage, nativeLanguage)
 		if err != nil {
 			return err
 		}
-
-		vocabulary, ok := vocabularyByID(vocabularies, entry.VocabularyID)
-		if !ok {
-			return gorm.ErrRecordNotFound
+		entryIDs := make([]int64, 0, count)
+		if len(vocabularies) > 0 {
+			encountered := selectionType == models.VocabularyAgentSelectionOld
+			var entries []models.VocabularyEntry
+			query := tx.Select("id").
+				Where("vocabulary_id IN ? AND entry_type = ? AND encountered = ?", vocabularyIDs(vocabularies), models.VocabularyEntryTypeWord, encountered).
+				Order("RANDOM()").
+				Limit(count)
+			if selectionType == models.VocabularyAgentSelectionNew {
+				query = query.Clauses(clause.Locking{Strength: "UPDATE", Table: clause.Table{Name: clause.CurrentTable}, Options: "SKIP LOCKED"})
+			}
+			if err := query.Find(&entries).Error; err != nil {
+				return err
+			}
+			for _, entry := range entries {
+				entryIDs = append(entryIDs, entry.ID)
+			}
 		}
-		result = &VocabularyRandomEntry{Vocabulary: vocabulary, Entry: entry, RelatedPhraseCount: relatedPhraseCount}
-		return nil
+
+		if selectionType == models.VocabularyAgentSelectionNew && len(entryIDs) > 0 {
+			now := time.Now().UTC()
+			update := tx.Model(&models.VocabularyEntry{}).
+				Where("id IN ? AND encountered = ?", entryIDs, false).
+				Updates(map[string]any{
+					"encountered":          true,
+					"encounter_count":      gorm.Expr("encounter_count + 1"),
+					"first_encountered_at": gorm.Expr("COALESCE(first_encountered_at, ?)", now),
+					"last_encountered_at":  now,
+				})
+			if update.Error != nil {
+				return update.Error
+			}
+			if update.RowsAffected != int64(len(entryIDs)) {
+				return gorm.ErrRecordNotFound
+			}
+		}
+
+		selection = models.VocabularyAgentSelection{
+			UserID:           userID,
+			RequestMessageID: requestMessageID,
+			SelectionType:    selectionType,
+			RequestedCount:   count,
+			EntryIDs:         entryIDs,
+		}
+		if err := tx.Create(&selection).Error; err != nil {
+			return err
+		}
+		result.RequestedCount = selection.RequestedCount
+		result.Entries, err = loadVocabularyRandomEntries(tx, userID, entryIDs)
+		return err
 	})
 	return result, err
 }
 
-func (s *VocabularyService) GetRandomOldWord(ctx context.Context, userID int64, targetLanguage, nativeLanguage string) (*VocabularyRandomEntry, error) {
-	vocabularies, err := findUserLanguageVocabularies(database.DB.WithContext(ctx), userID, targetLanguage, nativeLanguage)
-	if err != nil || len(vocabularies) == 0 {
-		return nil, err
+func loadVocabularyRandomEntries(tx *gorm.DB, userID int64, entryIDs []int64) ([]VocabularyRandomEntry, error) {
+	results := make([]VocabularyRandomEntry, 0, len(entryIDs))
+	for _, entryID := range entryIDs {
+		var entry models.VocabularyEntry
+		entryQuery := preloadRandomVocabularyEntry(tx.Where("vocabulary_entries.id = ?", entryID)).
+			Joins("JOIN vocabularies ON vocabularies.id = vocabulary_entries.vocabulary_id AND vocabularies.user_id = ?", userID).
+			Limit(1).
+			Find(&entry)
+		if entryQuery.Error != nil {
+			return nil, entryQuery.Error
+		}
+		if entryQuery.RowsAffected == 0 {
+			continue
+		}
+		var vocabulary models.Vocabulary
+		if err := tx.First(&vocabulary, "id = ? AND user_id = ?", entry.VocabularyID, userID).Error; err != nil {
+			return nil, err
+		}
+		relatedPhraseCount, err := countVocabularyEntryPhrases(tx, entry.ID)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, VocabularyRandomEntry{Vocabulary: vocabulary, Entry: entry, RelatedPhraseCount: relatedPhraseCount})
 	}
-
-	var entry models.VocabularyEntry
-	query := database.DB.WithContext(ctx).
-		Where("vocabulary_id IN ? AND entry_type = ? AND encountered = ?", vocabularyIDs(vocabularies), models.VocabularyEntryTypeWord, true).
-		Order("RANDOM()").
-		Limit(1)
-	query = preloadRandomVocabularyEntry(query)
-	operation := query.Find(&entry)
-	if operation.Error != nil {
-		return nil, operation.Error
-	}
-	if operation.RowsAffected == 0 {
-		return nil, nil
-	}
-	relatedPhraseCount, err := countVocabularyEntryPhrases(database.DB.WithContext(ctx), entry.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	vocabulary, ok := vocabularyByID(vocabularies, entry.VocabularyID)
-	if !ok {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return &VocabularyRandomEntry{Vocabulary: vocabulary, Entry: entry, RelatedPhraseCount: relatedPhraseCount}, nil
+	return results, nil
 }
 
 func preloadRandomVocabularyEntry(query *gorm.DB) *gorm.DB {
@@ -156,13 +199,4 @@ func vocabularyIDs(vocabularies []models.Vocabulary) []int64 {
 		ids = append(ids, vocabulary.ID)
 	}
 	return ids
-}
-
-func vocabularyByID(vocabularies []models.Vocabulary, vocabularyID int64) (models.Vocabulary, bool) {
-	for _, vocabulary := range vocabularies {
-		if vocabulary.ID == vocabularyID {
-			return vocabulary, true
-		}
-	}
-	return models.Vocabulary{}, false
 }

@@ -81,16 +81,20 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			Runtime:  s.runtime,
 		},
 		agenttools.RandomNewVocabularyWordTool{
-			UserID:         req.UserID,
-			TargetLanguage: req.Settings.TargetLanguage,
-			NativeLanguage: req.Settings.NativeLanguage,
-			Vocabulary:     s.vocabularyService,
+			UserID:           req.UserID,
+			RequestMessageID: req.ContextBeforeMessageID,
+			TargetLanguage:   req.Settings.TargetLanguage,
+			NativeLanguage:   req.Settings.NativeLanguage,
+			Vocabulary:       s.vocabularyService,
+			State:            turnState,
 		},
 		agenttools.RandomOldVocabularyWordTool{
-			UserID:         req.UserID,
-			TargetLanguage: req.Settings.TargetLanguage,
-			NativeLanguage: req.Settings.NativeLanguage,
-			Vocabulary:     s.vocabularyService,
+			UserID:           req.UserID,
+			RequestMessageID: req.ContextBeforeMessageID,
+			TargetLanguage:   req.Settings.TargetLanguage,
+			NativeLanguage:   req.Settings.NativeLanguage,
+			Vocabulary:       s.vocabularyService,
+			State:            turnState,
 		},
 	}
 

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"learnlang-api/models"
 	"learnlang-api/services"
@@ -43,11 +44,29 @@ type vocabularyToolEntry struct {
 	EncounterCount          int                           `json:"encounter_count"`
 }
 
+type vocabularyToolArgs struct {
+	Count int `json:"count"`
+}
+
+type vocabularyToolVocabulary struct {
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	TargetLanguage string `json:"target_language"`
+	NativeLanguage string `json:"native_language"`
+}
+
+type vocabularyToolSelectionEntry struct {
+	Vocabulary vocabularyToolVocabulary `json:"vocabulary"`
+	Entry      vocabularyToolEntry      `json:"entry"`
+}
+
 type RandomNewVocabularyWordTool struct {
-	UserID         int64
-	TargetLanguage string
-	NativeLanguage string
-	Vocabulary     *services.VocabularyService
+	UserID           int64
+	RequestMessageID int64
+	TargetLanguage   string
+	NativeLanguage   string
+	Vocabulary       *services.VocabularyService
+	State            *TurnState
 }
 
 func (RandomNewVocabularyWordTool) Name() string {
@@ -55,35 +74,26 @@ func (RandomNewVocabularyWordTool) Name() string {
 }
 
 func (RandomNewVocabularyWordTool) Description() string {
-	return `Get one random unseen word from the user's vocabulary for the current target/native language pair, including meanings, pronunciations, examples, notes, tags, and related phrases. The selected word is atomically marked as encountered. Use this when introducing a new vocabulary item. Input must be an empty JSON object: {}.`
+	return `Get a batch of random unseen words from the user's vocabulary for the current target/native language pair. Input is {"count": integer}; count defaults to 1 and is capped at 5. Call once with the full quantity the user requested, never repeatedly to accumulate words. Selected words are atomically marked as encountered. Repeated calls in the same user turn replay the first batch.`
 }
 
-func (t RandomNewVocabularyWordTool) Call(ctx context.Context, _ string) (string, error) {
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	if t.Vocabulary == nil {
-		return "", fmt.Errorf("vocabulary service is not configured")
-	}
-
-	result, err := t.Vocabulary.TakeRandomNewWord(ctx, t.UserID, t.TargetLanguage, t.NativeLanguage)
-	if err != nil {
-		return "", err
-	}
-	if result == nil {
-		return marshalToolResult(map[string]any{
-			"status": "empty",
-			"reason": "no unseen words are available for the current language pair",
-		})
-	}
-	return marshalVocabularyWordResult(result)
+func (t RandomNewVocabularyWordTool) Call(ctx context.Context, input string) (string, error) {
+	return callRandomVocabularyWords(ctx, input, vocabularyToolCallConfig{
+		userID: t.UserID, requestMessageID: t.RequestMessageID,
+		targetLanguage: t.TargetLanguage, nativeLanguage: t.NativeLanguage,
+		selectionType: models.VocabularyAgentSelectionNew,
+		emptyReason:   "no unseen words are available for the current language pair",
+		vocabulary:    t.Vocabulary, state: t.State,
+	})
 }
 
 type RandomOldVocabularyWordTool struct {
-	UserID         int64
-	TargetLanguage string
-	NativeLanguage string
-	Vocabulary     *services.VocabularyService
+	UserID           int64
+	RequestMessageID int64
+	TargetLanguage   string
+	NativeLanguage   string
+	Vocabulary       *services.VocabularyService
+	State            *TurnState
 }
 
 func (RandomOldVocabularyWordTool) Name() string {
@@ -91,31 +101,105 @@ func (RandomOldVocabularyWordTool) Name() string {
 }
 
 func (RandomOldVocabularyWordTool) Description() string {
-	return `Get one random previously encountered word from the user's vocabulary for the current target/native language pair, including meanings, pronunciations, examples, notes, tags, and related phrases. This tool is read-only and does not change encounter statistics. Use this for review or practice. Input must be an empty JSON object: {}.`
+	return `Get a batch of random previously encountered words from the user's vocabulary for review. Input is {"count": integer}; count defaults to 1 and is capped at 5. Call once with the full quantity the user requested, never repeatedly to accumulate words. This tool does not change encounter statistics. Repeated calls in the same user turn replay the first batch.`
 }
 
-func (t RandomOldVocabularyWordTool) Call(ctx context.Context, _ string) (string, error) {
+func (t RandomOldVocabularyWordTool) Call(ctx context.Context, input string) (string, error) {
+	return callRandomVocabularyWords(ctx, input, vocabularyToolCallConfig{
+		userID: t.UserID, requestMessageID: t.RequestMessageID,
+		targetLanguage: t.TargetLanguage, nativeLanguage: t.NativeLanguage,
+		selectionType: models.VocabularyAgentSelectionOld,
+		emptyReason:   "no previously encountered words are available for the current language pair",
+		vocabulary:    t.Vocabulary, state: t.State,
+	})
+}
+
+type vocabularyToolCallConfig struct {
+	userID           int64
+	requestMessageID int64
+	targetLanguage   string
+	nativeLanguage   string
+	selectionType    string
+	emptyReason      string
+	vocabulary       *services.VocabularyService
+	state            *TurnState
+}
+
+func callRandomVocabularyWords(ctx context.Context, input string, cfg vocabularyToolCallConfig) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	if t.Vocabulary == nil {
+	if cfg.vocabulary == nil {
 		return "", fmt.Errorf("vocabulary service is not configured")
 	}
+	if cfg.state != nil {
+		if cached, ok := cfg.state.VocabularyToolResult(cfg.selectionType); ok {
+			return cached, nil
+		}
+	}
 
-	result, err := t.Vocabulary.GetRandomOldWord(ctx, t.UserID, t.TargetLanguage, t.NativeLanguage)
+	count, invalidResult, err := parseVocabularyToolCount(input)
 	if err != nil {
 		return "", err
 	}
-	if result == nil {
-		return marshalToolResult(map[string]any{
-			"status": "empty",
-			"reason": "no previously encountered words are available for the current language pair",
-		})
+	if invalidResult != "" {
+		return invalidResult, nil
 	}
-	return marshalVocabularyWordResult(result)
+
+	selection, err := cfg.vocabulary.SelectAgentVocabularyWords(ctx, cfg.userID, cfg.requestMessageID, cfg.selectionType, cfg.targetLanguage, cfg.nativeLanguage, count)
+	if err != nil {
+		return "", err
+	}
+	result, err := marshalVocabularyWordsResult(selection.RequestedCount, selection.Entries, cfg.emptyReason)
+	if err != nil {
+		return "", err
+	}
+	if cfg.state != nil {
+		cfg.state.SetVocabularyToolResult(cfg.selectionType, result)
+	}
+	return result, nil
 }
 
-func marshalVocabularyWordResult(result *services.VocabularyRandomEntry) (string, error) {
+func parseVocabularyToolCount(input string) (int, string, error) {
+	args := vocabularyToolArgs{Count: 1}
+	if input != "" {
+		if err := json.Unmarshal([]byte(input), &args); err != nil {
+			result, marshalErr := marshalToolResult(map[string]any{"status": "invalid_request", "error": "input must be a JSON object with an optional integer count"})
+			return 0, result, marshalErr
+		}
+	}
+	if args.Count < 1 {
+		result, err := marshalToolResult(map[string]any{"status": "invalid_request", "error": "count must be at least 1"})
+		return 0, result, err
+	}
+	if args.Count > services.MaxAgentVocabularyWords {
+		args.Count = services.MaxAgentVocabularyWords
+	}
+	return args.Count, "", nil
+}
+
+func marshalVocabularyWordsResult(requestedCount int, results []services.VocabularyRandomEntry, emptyReason string) (string, error) {
+	entries := make([]vocabularyToolSelectionEntry, 0, len(results))
+	for i := range results {
+		entries = append(entries, makeVocabularyToolEntry(&results[i]))
+	}
+	status := "found"
+	if len(entries) == 0 {
+		status = "empty"
+	}
+	payload := map[string]any{
+		"status":          status,
+		"requested_count": requestedCount,
+		"actual_count":    len(entries),
+		"entries":         entries,
+	}
+	if len(entries) == 0 {
+		payload["reason"] = emptyReason
+	}
+	return marshalToolResult(payload)
+}
+
+func makeVocabularyToolEntry(result *services.VocabularyRandomEntry) vocabularyToolSelectionEntry {
 	entry := vocabularyToolEntry{
 		ID:                      result.Entry.ID,
 		TargetText:              result.Entry.TargetText,
@@ -166,14 +250,11 @@ func marshalVocabularyWordResult(result *services.VocabularyRandomEntry) (string
 		entry.RelatedPhrases = append(entry.RelatedPhrases, phrase)
 	}
 
-	return marshalToolResult(map[string]any{
-		"status": "found",
-		"vocabulary": map[string]any{
-			"id":              result.Vocabulary.ID,
-			"name":            result.Vocabulary.Name,
-			"target_language": result.Vocabulary.TargetLanguage,
-			"native_language": result.Vocabulary.NativeLanguage,
+	return vocabularyToolSelectionEntry{
+		Vocabulary: vocabularyToolVocabulary{
+			ID: result.Vocabulary.ID, Name: result.Vocabulary.Name,
+			TargetLanguage: result.Vocabulary.TargetLanguage, NativeLanguage: result.Vocabulary.NativeLanguage,
 		},
-		"entry": entry,
-	})
+		Entry: entry,
+	}
 }
