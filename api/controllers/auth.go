@@ -26,8 +26,7 @@ type LoginRequest struct {
 type RegisterRequest struct {
 	Email    *string `json:"email"`
 	Phone    *string `json:"phone"`
-	Username string  `json:"username" binding:"required"`
-	Password string  `json:"password" binding:"required"`
+	Password string  `json:"password" binding:"required,min=6"`
 }
 
 type ChangePasswordRequest struct {
@@ -62,15 +61,14 @@ func (ac *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	if (req.Email == nil || *req.Email == "") && (req.Phone == nil || *req.Phone == "") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email or phone is required"})
-		return
-	}
-
-	user, token, err := ac.authService.Register(req.Email, req.Phone, req.Username, req.Password)
+	user, token, err := ac.authService.Register(req.Email, req.Phone, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, utils.ErrEmailExists), errors.Is(err, utils.ErrPhoneExists):
+		case errors.Is(err, utils.ErrEmailExists),
+			errors.Is(err, utils.ErrPhoneExists),
+			errors.Is(err, utils.ErrRegistrationContact),
+			errors.Is(err, utils.ErrInvalidEmail),
+			errors.Is(err, utils.ErrInvalidPhone):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register"})

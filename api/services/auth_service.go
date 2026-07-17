@@ -5,6 +5,8 @@ import (
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"learnlang-api/utils"
+	"net/mail"
+	"strings"
 	"time"
 )
 
@@ -21,8 +23,9 @@ func NewAuthService(cfg *config.Config, tokenManager *utils.TokenManager) *AuthS
 }
 
 func (as *AuthService) Login(account, password string) (*models.User, string, error) {
+	account = strings.TrimSpace(account)
 	var user models.User
-	if err := database.DB.Where("email = ? OR phone = ?", account, account).First(&user).Error; err != nil {
+	if err := database.DB.Where("LOWER(email) = LOWER(?) OR phone = ?", account, account).First(&user).Error; err != nil {
 		return nil, "", err
 	}
 
@@ -50,7 +53,30 @@ func (as *AuthService) Logout(userID int64) error {
 	return as.tokenManager.DeleteToken(userID)
 }
 
-func (as *AuthService) Register(email, phone *string, username, password string) (*models.User, string, error) {
+func (as *AuthService) Register(email, phone *string, password string) (*models.User, string, error) {
+	email = normalizeRegistrationContact(email, true)
+	phone = normalizeRegistrationContact(phone, false)
+	if email == nil && phone == nil {
+		return nil, "", utils.ErrRegistrationContact
+	}
+	if email != nil && !validRegistrationEmail(*email) {
+		return nil, "", utils.ErrInvalidEmail
+	}
+	if phone != nil && len([]rune(*phone)) > 32 {
+		return nil, "", utils.ErrInvalidPhone
+	}
+
+	username := ""
+	if phone != nil {
+		username = *phone
+	} else {
+		username = strings.SplitN(*email, "@", 2)[0]
+	}
+	usernameRunes := []rune(username)
+	if len(usernameRunes) > 64 {
+		username = string(usernameRunes[:64])
+	}
+
 	userService := NewUserService()
 	user, err := userService.CreateUser(email, phone, username, password, "user")
 	if err != nil {
@@ -67,6 +93,28 @@ func (as *AuthService) Register(email, phone *string, username, password string)
 	}
 
 	return user, token, nil
+}
+
+func normalizeRegistrationContact(value *string, lowercase bool) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := strings.TrimSpace(*value)
+	if normalized == "" {
+		return nil
+	}
+	if lowercase {
+		normalized = strings.ToLower(normalized)
+	}
+	return &normalized
+}
+
+func validRegistrationEmail(email string) bool {
+	if len(email) > 255 {
+		return false
+	}
+	address, err := mail.ParseAddress(email)
+	return err == nil && address.Address == email
 }
 
 func (as *AuthService) ChangePassword(userID int64, newPassword string) error {

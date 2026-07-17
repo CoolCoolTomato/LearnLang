@@ -20,7 +20,7 @@ type UserListResult struct {
 func (us *UserService) CreateUser(email, phone *string, username, password, role string) (*models.User, error) {
 	var count int64
 	if email != nil && *email != "" {
-		database.DB.Model(&models.User{}).Where("email = ?", email).Count(&count)
+		database.DB.Model(&models.User{}).Where("LOWER(email) = LOWER(?)", email).Count(&count)
 		if count > 0 {
 			return nil, utils.ErrEmailExists
 		}

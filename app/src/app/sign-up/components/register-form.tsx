@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ArrowRight, LockKeyhole, Mail, Phone, User2 } from "lucide-react"
+import { ArrowRight, LockKeyhole, Mail, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { register } from "@/api/auth"
 import { useAuth } from "@/contexts/auth-context"
 import { Logo } from "@/components/logo"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getErrorMessage } from "@/lib/error"
 
 export function RegisterForm({
@@ -23,8 +24,10 @@ export function RegisterForm({
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [registrationMethod, setRegistrationMethod] = useState<
+    "email" | "phone"
+  >("email")
   const [formData, setFormData] = useState({
-    username: "",
     email: "",
     phone: "",
     password: "",
@@ -34,21 +37,15 @@ export function RegisterForm({
   const handleRegister = async () => {
     if (isLoading) return
 
-    const username = formData.username.trim()
     const email = formData.email.trim()
     const phone = formData.phone.trim()
+    const account = registrationMethod === "email" ? email : phone
 
     setIsLoading(true)
     setError("")
 
-    if (!username || !formData.password || !formData.confirmPassword) {
+    if (!account || !formData.password || !formData.confirmPassword) {
       setError(t("auth.fillAllFields"))
-      setIsLoading(false)
-      return
-    }
-
-    if (!email && !phone) {
-      setError(t("auth.emailOrPhoneRequired"))
       setIsLoading(false)
       return
     }
@@ -67,10 +64,8 @@ export function RegisterForm({
 
     try {
       const response = await register({
-        username,
         password: formData.password,
-        ...(email ? { email } : {}),
-        ...(phone ? { phone } : {}),
+        ...(registrationMethod === "email" ? { email } : { phone }),
       })
       setUser(response.user)
       navigate("/chat")
@@ -122,68 +117,72 @@ export function RegisterForm({
       )}
 
       <div className="grid gap-5">
-        <div className="grid gap-2.5">
-          <Label htmlFor="username" className="text-sm">
-            {t("auth.usernameLabel")}
-          </Label>
-          <div className="relative">
-            <User2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="username"
-              type="text"
-              placeholder={t("auth.usernamePlaceholder")}
-              value={formData.username}
-              onChange={(e) =>
-                setFormData({ ...formData, username: e.target.value })
-              }
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-              className="h-11 rounded-xl border-border/60 bg-background pl-10 shadow-none transition-[border,box-shadow] focus-visible:ring-2"
-            />
-          </div>
-        </div>
+        <Tabs
+          value={registrationMethod}
+          onValueChange={(value) => {
+            setRegistrationMethod(value as "email" | "phone")
+            setError("")
+          }}
+        >
+          <TabsList className="grid h-10 w-full grid-cols-2">
+            <TabsTrigger value="email">
+              <Mail />
+              {t("auth.registerWithEmail")}
+            </TabsTrigger>
+            <TabsTrigger value="phone">
+              <Phone />
+              {t("auth.registerWithPhone")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <div className="grid gap-2.5">
-          <Label htmlFor="email" className="text-sm">
-            {t("auth.email")}
-          </Label>
-          <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="email"
-              type="email"
-              placeholder={t("auth.emailPlaceholder")}
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-              className="h-11 rounded-xl border-border/60 bg-background pl-10 shadow-none transition-[border,box-shadow] focus-visible:ring-2"
-            />
+        {registrationMethod === "email" ? (
+          <div className="grid gap-2.5">
+            <Label htmlFor="email" className="text-sm">
+              {t("auth.email")}
+            </Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                maxLength={255}
+                placeholder={t("auth.emailPlaceholder")}
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+                className="h-11 rounded-xl border-border/60 bg-background pl-10 shadow-none transition-[border,box-shadow] focus-visible:ring-2"
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="grid gap-2.5">
-          <Label htmlFor="phone" className="text-sm">
-            {t("auth.phoneLabel")}
-          </Label>
-          <div className="relative">
-            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="phone"
-              type="text"
-              placeholder={t("auth.phonePlaceholder")}
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
-              }
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-              className="h-11 rounded-xl border-border/60 bg-background pl-10 shadow-none transition-[border,box-shadow] focus-visible:ring-2"
-            />
+        ) : (
+          <div className="grid gap-2.5">
+            <Label htmlFor="phone" className="text-sm">
+              {t("auth.phoneLabel")}
+            </Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                maxLength={32}
+                placeholder={t("auth.phonePlaceholder")}
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+                className="h-11 rounded-xl border-border/60 bg-background pl-10 shadow-none transition-[border,box-shadow] focus-visible:ring-2"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid gap-2.5">
           <Label htmlFor="password" className="text-sm">
@@ -191,10 +190,11 @@ export function RegisterForm({
           </Label>
 
           <div className="relative">
-            <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <LockKeyhole className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="password"
               type="password"
+              autoComplete="new-password"
               placeholder={t("auth.passwordPlaceholder")}
               value={formData.password}
               onChange={(e) =>
@@ -213,10 +213,11 @@ export function RegisterForm({
           </Label>
 
           <div className="relative">
-            <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <LockKeyhole className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="confirmPassword"
               type="password"
+              autoComplete="new-password"
               placeholder={t("auth.confirmPasswordPlaceholder")}
               value={formData.confirmPassword}
               onChange={(e) =>
@@ -235,7 +236,9 @@ export function RegisterForm({
           disabled={isLoading}
           onClick={handleRegister}
         >
-          <span>{isLoading ? t("auth.registering") : t("auth.createAccount")}</span>
+          <span>
+            {isLoading ? t("auth.registering") : t("auth.createAccount")}
+          </span>
           <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Button>
       </div>
