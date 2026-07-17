@@ -13,6 +13,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { logout } from "@/api/auth"
 import { resolveAvatarUrl } from "@/api/profile"
 import { Logo } from "@/components/logo"
+import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
@@ -159,6 +160,9 @@ export function AppLayout() {
                 {t("chat.headerSubtitle", "Your AI language partner")}
               </p>
             ) : null}
+          </div>
+          <div className="ml-auto shrink-0">
+            <ThemeToggle variant="ghost" />
           </div>
         </header>
 
