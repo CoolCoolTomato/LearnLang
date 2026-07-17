@@ -57,7 +57,7 @@
         "headerSubtitle": "Your AI language partner",
         "connected": "Online",
         "disconnected": "Offline",
-        "lookupVocabulary": "Look up in vocabulary",
+        "lookupVocabulary": "Find in vocabulary",
         "vocabularyNoMatches": "No matching words or phrases found",
         "vocabularyLookupFailed": "Failed to query vocabulary",
         "vocabularyDetails": "{{count}} matching vocabulary entries",
