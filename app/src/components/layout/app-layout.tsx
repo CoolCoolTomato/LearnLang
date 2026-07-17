@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   BookOpenText,
-  LogOut,
   MessageCircle,
   PanelLeft,
   Settings,
@@ -9,8 +8,7 @@ import {
   X,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { logout } from "@/api/auth"
+import { NavLink, Outlet, useLocation } from "react-router-dom"
 import { resolveAvatarUrl } from "@/api/profile"
 import { Logo } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
@@ -28,7 +26,6 @@ const navigation = [
     label: "navigation.vocabulary",
     icon: BookOpenText,
   },
-  { path: "/profile", label: "profile.title", icon: UserRound },
   { path: "/setting", label: "settings.title", icon: Settings },
 ]
 
@@ -39,8 +36,6 @@ export interface AppLayoutOutletContext {
 export function AppLayout() {
   const { t } = useTranslation()
   const location = useLocation()
-  const navigate = useNavigate()
-  const { clearAuth } = useAuth()
   const [desktopOpen, setDesktopOpen] = useState(
     () => localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "false"
   )
@@ -73,15 +68,6 @@ export function AppLayout() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-    } finally {
-      clearAuth()
-      navigate("/sign-in")
-    }
-  }
-
   const pageTitle =
     location.pathname === "/profile"
       ? t("profile.title", "Profile")
@@ -107,7 +93,6 @@ export function AppLayout() {
         mobileOpen={mobileOpen}
         closeMobile={() => setMobileOpen(false)}
         toggleDesktop={toggleDesktop}
-        onLogout={handleLogout}
       />
 
       <main
@@ -186,7 +171,6 @@ interface AppSidebarProps {
   mobileOpen: boolean
   closeMobile: () => void
   toggleDesktop: () => void
-  onLogout: () => void
 }
 
 function AppSidebar({
@@ -194,7 +178,6 @@ function AppSidebar({
   mobileOpen,
   closeMobile,
   toggleDesktop,
-  onLogout,
 }: AppSidebarProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -246,12 +229,19 @@ function AppSidebar({
         </nav>
       </div>
 
-      <div className="border-t border-sidebar-border p-2">
-        <div
-          className={cn(
-            "flex h-12 items-center overflow-hidden rounded-md p-2",
-            expanded ? "gap-2" : "justify-center"
-          )}
+      <div className="p-2">
+        <NavLink
+          to="/profile"
+          onClick={mobile ? closeMobile : undefined}
+          className={({ isActive }) =>
+            cn(
+              "flex h-12 items-center overflow-hidden rounded-md p-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+              expanded ? "gap-2" : "justify-center",
+              isActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
           title={
             !expanded
               ? user?.username || t("profile.title", "Profile")
@@ -277,20 +267,7 @@ function AppSidebar({
               </div>
             </div>
           ) : null}
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          className={cn(
-            "h-8 w-full text-destructive hover:text-destructive",
-            expanded ? "justify-start px-2" : "px-0"
-          )}
-          onClick={onLogout}
-          title={!expanded ? t("auth.logout", "Logout") : undefined}
-        >
-          <LogOut className={cn("size-4", expanded && "mr-2")} />
-          {expanded ? t("auth.logout", "Logout") : null}
-        </Button>
+        </NavLink>
       </div>
     </>
   )

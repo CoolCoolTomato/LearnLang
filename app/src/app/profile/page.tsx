@@ -1,7 +1,8 @@
 import * as React from "react"
-import { ImagePlus, KeyRound, Save, Upload, UserRound } from "lucide-react"
+import { KeyRound, LogOut, Pencil, Save, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -23,7 +24,8 @@ import {
 } from "@/api/profile"
 import { getErrorMessage } from "@/lib/error"
 import { useAuth } from "@/contexts/auth-context"
-import { changePassword } from "@/api/auth"
+import { changePassword, logout } from "@/api/auth"
+import { AvatarUploadDialog } from "./components/avatar-upload-dialog"
 
 interface ProfileFormData {
   username: string
@@ -44,20 +46,20 @@ const emptyPasswordForm: PasswordFormData = {
 
 export default function ProfilePage() {
   const { t } = useTranslation()
-  const { setUser } = useAuth()
+  const navigate = useNavigate()
+  const { clearAuth, setUser } = useAuth()
 
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
+  const [avatarDialogOpen, setAvatarDialogOpen] = React.useState(false)
   const [changingPassword, setChangingPassword] = React.useState(false)
+  const [loggingOut, setLoggingOut] = React.useState(false)
   const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false)
   const [passwordError, setPasswordError] = React.useState("")
   const [passwordForm, setPasswordForm] =
     React.useState<PasswordFormData>(emptyPasswordForm)
   const [error, setError] = React.useState<string | null>(null)
-  const [avatarFile, setAvatarFile] = React.useState<File | null>(null)
-  const [localAvatarPreview, setLocalAvatarPreview] = React.useState("")
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const [formData, setFormData] = React.useState<ProfileFormData>({
     username: "",
@@ -88,63 +90,11 @@ export default function ProfilePage() {
     loadProfile()
   }, [t])
 
-  React.useEffect(() => {
-    return () => {
-      if (localAvatarPreview) {
-        URL.revokeObjectURL(localAvatarPreview)
-      }
-    }
-  }, [localAvatarPreview])
-
   const handleChange = (patch: Partial<ProfileFormData>) => {
     setFormData((prev) => ({ ...prev, ...patch }))
   }
 
-  const handleAvatarPick = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith("image/")) {
-      toast.error(t("profile.avatarInvalidType", "Please choose an image file"))
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(
-        t("profile.avatarTooLarge", "Image size must be less than 5MB")
-      )
-      return
-    }
-
-    if (localAvatarPreview) {
-      URL.revokeObjectURL(localAvatarPreview)
-    }
-
-    setAvatarFile(file)
-    setLocalAvatarPreview(URL.createObjectURL(file))
-  }
-
-  const handleClearAvatarSelection = () => {
-    setAvatarFile(null)
-    if (localAvatarPreview) {
-      URL.revokeObjectURL(localAvatarPreview)
-      setLocalAvatarPreview("")
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  const formatFileSize = (size: number) => {
-    const mb = size / (1024 * 1024)
-    if (mb >= 1) return `${mb.toFixed(2)} MB`
-    const kb = size / 1024
-    return `${Math.max(1, Math.round(kb))} KB`
-  }
-
-  const handleUploadAvatar = async () => {
-    if (!avatarFile) return
-
+  const handleUploadAvatar = async (avatarFile: File) => {
     try {
       setUploading(true)
       const uploadResult = await uploadProfileAvatar(avatarFile)
@@ -156,10 +106,11 @@ export default function ProfilePage() {
         avatar_url: profile.avatar_url || prev.avatar_url,
       }))
       setUser(profile)
-      handleClearAvatarSelection()
       toast.success(t("profile.avatarUpdated", "Avatar updated"))
+      return true
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t("userSettings.updateFailed")))
+      return false
     } finally {
       setUploading(false)
     }
@@ -187,6 +138,17 @@ export default function ProfilePage() {
       toast.error(getErrorMessage(err, t("userSettings.updateFailed")))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    if (loggingOut) return
+    try {
+      setLoggingOut(true)
+      await logout()
+    } finally {
+      clearAuth()
+      navigate("/sign-in")
     }
   }
 
@@ -254,205 +216,162 @@ export default function ProfilePage() {
     )
   }
 
-  const avatarSrc = localAvatarPreview || resolveAvatarUrl(formData.avatar_url)
+  const avatarSrc = resolveAvatarUrl(formData.avatar_url)
 
   return (
-    <div className="relative min-h-full bg-background">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
-        <div className="rounded-2xl border border-border/60 bg-background/80 p-5 shadow-sm backdrop-blur">
-          <div className="grid gap-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-muted/40">
-                  <UserRound className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    {t("profile.title", "Profile")}
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    {t(
-                      "profile.description",
-                      "Manage your account information."
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-full bg-background">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6 md:py-10">
+        <main className="overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm">
+          <section className="p-5 sm:p-7">
+            <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+              <button
+                type="button"
+                className="group relative shrink-0 rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                onClick={() => setAvatarDialogOpen(true)}
+                aria-label={t("profile.editAvatar")}
+                title={t("profile.editAvatar")}
+              >
+                <Avatar className="size-20 ring-1 ring-border sm:size-24">
+                  <AvatarImage
+                    src={avatarSrc}
+                    alt={formData.username || "User avatar"}
+                  />
+                  <AvatarFallback>
+                    <UserRound className="size-7 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <Pencil className="size-5" />
+                </span>
+              </button>
 
-            <div className="mt-1 grid gap-5 md:grid-cols-[220px_1fr]">
-              <div className="rounded-xl border border-border/60 bg-background/80 p-4">
-                <div className="flex flex-col items-center gap-3">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage
-                      src={avatarSrc}
-                      alt={formData.username || "User avatar"}
-                    />
-                    <AvatarFallback>
-                      <UserRound className="h-6 w-6" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-center">
-                    <div className="text-sm font-medium">
-                      {formData.username || t("profile.title", "Profile")}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {t("profile.avatarTip", "JPG/PNG up to 5MB")}
-                    </div>
-                  </div>
-                </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-xl font-semibold sm:text-2xl">
+                  {formData.username || t("profile.title", "Profile")}
+                </h2>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {formData.email || t("profile.emailNotSet")}
+                </p>
               </div>
 
-              <div className="grid gap-3">
-                <div>
-                  <div className="text-sm font-medium">
-                    {t("profile.avatarTitle", "Profile Avatar")}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {t(
-                      "profile.avatarDesc",
-                      "Upload and save a new avatar to update your account image."
-                    )}
-                  </div>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarPick}
-                  className="hidden"
-                />
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-xl px-4"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    <ImagePlus className="mr-2 h-4 w-4" />
-                    {t("profile.selectAvatar", "Select Image")}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    onClick={handleUploadAvatar}
-                    disabled={!avatarFile || uploading}
-                    className="h-10 rounded-xl px-4"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {uploading
-                      ? t("common.saving", "Saving...")
-                      : t("profile.updateAvatar", "update Avatar")}
-                  </Button>
-
-                  {avatarFile ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleClearAvatarSelection}
-                      className="h-10 rounded-xl px-3"
-                      disabled={uploading}
-                    >
-                      {t("common.cancel", "Cancel")}
-                    </Button>
-                  ) : null}
-                </div>
-
-                {avatarFile ? (
-                  <div className="rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {avatarFile.name}
-                    </span>
-                    <span className="ml-2">
-                      {formatFileSize(avatarFile.size)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-3 text-xs text-muted-foreground">
-                    {t("profile.avatarEmpty", "No image selected")}
-                  </div>
-                )}
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-lg"
+                className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto sm:px-4"
+                onClick={() => void handleLogout()}
+                disabled={loggingOut}
+                aria-label={t("auth.logout", "Logout")}
+                title={t("auth.logout", "Logout")}
+              >
+                <LogOut />
+                <span className="hidden sm:inline">
+                  {t("auth.logout", "Logout")}
+                </span>
+              </Button>
             </div>
+          </section>
 
-            <div className="grid gap-2">
-              <label className="text-sm text-muted-foreground">
-                {t("profile.username", "Username")}
-              </label>
-              <Input
-                value={formData.username}
-                onChange={(e) => handleChange({ username: e.target.value })}
-                className="h-11 rounded-xl"
-                placeholder="tomato"
-              />
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-2 md:gap-4">
+          <section className="border-t border-border/70 p-5 sm:p-7">
+            <div className="grid gap-5">
               <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">
-                  {t("profile.email", "Email")}
+                <label
+                  htmlFor="profile-username"
+                  className="text-sm font-medium"
+                >
+                  {t("profile.username", "Username")}
                 </label>
                 <Input
-                  value={formData.email}
-                  onChange={(e) => handleChange({ email: e.target.value })}
-                  className="h-11 rounded-xl"
-                  placeholder="user@example.com"
+                  id="profile-username"
+                  value={formData.username}
+                  onChange={(e) => handleChange({ username: e.target.value })}
+                  className="h-11"
+                  placeholder="tomato"
                 />
               </div>
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">
-                  {t("profile.phone", "Phone")}
-                </label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => handleChange({ phone: e.target.value })}
-                  className="h-11 rounded-xl"
-                  placeholder=""
-                />
-              </div>
-            </div>
-          </div>
 
-          <div className="mt-8 flex items-center justify-end">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-11 rounded-xl px-5"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? t("common.saving", "Saving...") : t("common.save")}
-            </Button>
-          </div>
-
-          <div className="mt-6 flex flex-col gap-4 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/60">
-                <KeyRound className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="text-sm font-medium">
-                  {t("profile.accountSecurity")}
+              <div className="grid gap-5 md:grid-cols-2 md:gap-4">
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="profile-email"
+                    className="text-sm font-medium"
+                  >
+                    {t("profile.email", "Email")}
+                  </label>
+                  <Input
+                    id="profile-email"
+                    value={formData.email}
+                    onChange={(e) => handleChange({ email: e.target.value })}
+                    className="h-11"
+                    placeholder="user@example.com"
+                  />
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {t("profile.passwordDescription")}
+
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="profile-phone"
+                    className="text-sm font-medium"
+                  >
+                    {t("profile.phone", "Phone")}
+                  </label>
+                  <Input
+                    id="profile-phone"
+                    value={formData.phone}
+                    onChange={(e) => handleChange({ phone: e.target.value })}
+                    className="h-11"
+                    placeholder=""
+                  />
                 </div>
               </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="h-10 px-5"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? t("common.saving", "Saving...") : t("common.save")}
+                </Button>
+              </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 shrink-0 rounded-xl px-4"
-              onClick={() => setPasswordDialogOpen(true)}
-            >
-              <KeyRound className="mr-2 h-4 w-4" />
-              {t("profile.changePassword")}
-            </Button>
-          </div>
-        </div>
+          </section>
+
+          <section className="border-t border-border/70 p-5 sm:p-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <KeyRound className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">
+                    {t("profile.accountSecurity")}
+                  </div>
+                  <div className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {t("profile.passwordDescription")}
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 px-4"
+                onClick={() => setPasswordDialogOpen(true)}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                {t("profile.changePassword")}
+              </Button>
+            </div>
+          </section>
+        </main>
       </div>
+
+      <AvatarUploadDialog
+        open={avatarDialogOpen}
+        uploading={uploading}
+        onOpenChange={setAvatarDialogOpen}
+        onUpload={handleUploadAvatar}
+      />
 
       <Dialog
         open={passwordDialogOpen}
