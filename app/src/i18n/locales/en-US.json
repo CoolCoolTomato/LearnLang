@@ -204,6 +204,8 @@
     "vocabulary": {
         "title": "Vocabulary",
         "libraries": "Vocabulary lists",
+        "collapseLibraries": "Collapse vocabulary lists",
+        "expandLibraries": "Expand vocabulary lists",
         "create": "New vocabulary",
         "edit": "Edit vocabulary",
         "delete": "Delete vocabulary",

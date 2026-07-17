@@ -4,6 +4,8 @@ import {
   Eraser,
   LibraryBig,
   Languages,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
   Plus,
   Search,
@@ -46,6 +48,7 @@ import { VocabularyRow } from "./components/vocabulary-row"
 import { VocabularySearch } from "./components/vocabulary-search"
 
 const DEFAULT_PAGE_SIZE = 5
+const LIBRARIES_PANEL_STORAGE_KEY = "learnlang_vocabulary_libraries_open"
 
 export default function VocabularyPage() {
   const { t } = useTranslation()
@@ -55,6 +58,9 @@ export default function VocabularyPage() {
   const [selectedID, setSelectedID] = React.useState<number | null>(null)
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
+  const [librariesOpen, setLibrariesOpen] = React.useState(
+    () => localStorage.getItem(LIBRARIES_PANEL_STORAGE_KEY) !== "false"
+  )
   const [searchQuery, setSearchQuery] = React.useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("")
   const [data, setData] = React.useState<VocabularyPageData | null>(null)
@@ -234,13 +240,27 @@ export default function VocabularyPage() {
     })
   }
 
+  const toggleLibrariesPanel = () => {
+    setLibrariesOpen((open) => {
+      localStorage.setItem(LIBRARIES_PANEL_STORAGE_KEY, String(!open))
+      return !open
+    })
+  }
+
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const vocabularyEntryCount = selected?.entry_count ?? 0
   const hasSearchQuery = debouncedSearchQuery.length > 0
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-1">
+    <div
+      className={cn(
+        "grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background transition-[grid-template-columns] duration-200 lg:grid-rows-1",
+        librariesOpen
+          ? "lg:grid-cols-[minmax(0,1fr)_280px]"
+          : "lg:grid-cols-[minmax(0,1fr)_48px]"
+      )}
+    >
       <main className="order-last min-h-0 min-w-0 lg:order-first">
         <ScrollArea className="h-full">
           <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
@@ -399,22 +419,55 @@ export default function VocabularyPage() {
         </ScrollArea>
       </main>
 
-      <aside className="order-first min-h-0 border-b border-border/70 bg-muted/15 lg:order-last lg:border-b-0 lg:border-l">
-        <div className="flex items-center justify-between gap-2 px-4 py-3 lg:h-14 lg:border-b lg:border-border/70">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+      <aside className="order-first min-h-0 border-b border-border/70 lg:order-last lg:border-b-0 lg:border-l">
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2 px-4 py-3 lg:h-14 lg:border-b lg:border-border/70",
+            !librariesOpen && "lg:justify-center lg:px-2"
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-center gap-2 text-sm font-semibold",
+              !librariesOpen && "lg:hidden"
+            )}
+          >
             <LibraryBig className="size-4 text-muted-foreground" />
             {t("vocabulary.libraries")}
           </div>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={() => setCreateOpen(true)}
-            title={t("vocabulary.create")}
-          >
-            <Plus />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={cn(!librariesOpen && "lg:hidden")}
+              onClick={() => setCreateOpen(true)}
+              title={t("vocabulary.create")}
+            >
+              <Plus />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="hidden lg:inline-flex"
+              onClick={toggleLibrariesPanel}
+              aria-expanded={librariesOpen}
+              title={
+                librariesOpen
+                  ? t("vocabulary.collapseLibraries")
+                  : t("vocabulary.expandLibraries")
+              }
+            >
+              {librariesOpen ? <PanelRightClose /> : <PanelRightOpen />}
+            </Button>
+          </div>
         </div>
-        <ScrollArea className="h-24 lg:h-[calc(100%-3.5rem)]" scrollbars="both">
+        <ScrollArea
+          className={cn(
+            "h-24 lg:h-[calc(100%-3.5rem)]",
+            !librariesOpen && "lg:hidden"
+          )}
+          scrollbars="both"
+        >
           <div className="flex w-max gap-2 px-3 pb-3 lg:w-auto lg:flex-col lg:p-2">
             {vocabularies.map((vocabulary) => (
               <button
