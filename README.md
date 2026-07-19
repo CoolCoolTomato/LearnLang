@@ -17,7 +17,7 @@ It is not just an AI assistant, but a **language learning companion with memory 
 - Text chat and voice chat
 - AI bilingual responses (each sentence includes a translation)
 - Real-time streaming responses based on WebSocket
-- Long-term memory storage and semantic retrieval powered by `pgvector`
+- Long-term memory storage and semantic retrieval powered by Milvus
 - Conversation summarization and context compression
 - Scheduled messages / reminders (automatically converted to UTC)
 - Text-to-Speech (TTS) and Speech-to-Text (STT)
