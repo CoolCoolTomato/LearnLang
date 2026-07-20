@@ -4,6 +4,7 @@ import (
 	"context"
 	"learnlang-api/database"
 	"learnlang-api/models"
+	"regexp"
 	"strings"
 	"time"
 
@@ -181,16 +182,30 @@ func findUserLanguageVocabularies(db *gorm.DB, userID int64, targetLanguage, nat
 	nativeLanguage = strings.TrimSpace(nativeLanguage)
 	query := db.Where("user_id = ?", userID)
 	if targetLanguage != "" {
-		query = query.Where("LOWER(target_language) = LOWER(?)", targetLanguage)
+		query = query.Where(vocabularyLanguageMatchSQL("target_language"), normalizeVocabularyLanguage(targetLanguage))
 	}
 	if nativeLanguage != "" {
-		query = query.Where("LOWER(native_language) = LOWER(?)", nativeLanguage)
+		query = query.Where(vocabularyLanguageMatchSQL("native_language"), normalizeVocabularyLanguage(nativeLanguage))
 	}
 	var vocabularies []models.Vocabulary
 	if err := query.Order("is_default DESC, id ASC").Find(&vocabularies).Error; err != nil {
 		return nil, err
 	}
 	return vocabularies, nil
+}
+
+var vocabularyLanguageSeparator = regexp.MustCompile(`[-_]`)
+
+func normalizeVocabularyLanguage(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+	return vocabularyLanguageSeparator.Split(value, 2)[0]
+}
+
+func vocabularyLanguageMatchSQL(column string) string {
+	return "LOWER(SPLIT_PART(REPLACE(" + column + ", '_', '-'), '-', 1)) = ?"
 }
 
 func vocabularyIDs(vocabularies []models.Vocabulary) []int64 {
