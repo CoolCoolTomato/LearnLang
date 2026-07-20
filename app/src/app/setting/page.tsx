@@ -49,7 +49,7 @@ export default function Page() {
   const [error, setError] = React.useState<string | null>(null)
   const [activeTab, setActiveTab] = React.useState("general")
   const [language, setLanguageState] = React.useState<Language>(
-    (i18n.resolvedLanguage || "zh-CN") as Language
+    (i18n.resolvedLanguage || "en-US") as Language
   )
 
 
@@ -100,7 +100,7 @@ export default function Page() {
     { id: "UTC" },
   ]
 
-  const languageList: Language[] = ["zh-CN", "en-US"]
+  const languageList: Language[] = ["en-US", "zh-CN"]
 
   const patchForm = (patch: Partial<typeof settingsFormData>) => {
     setSettingsFormData((prev) => ({ ...prev, ...patch }))
@@ -164,7 +164,7 @@ export default function Page() {
         target_language: s.target_language || "",
         timezone: s.timezone || "",
       })
-      setLanguageState((i18n.resolvedLanguage || "zh-CN") as Language)
+      setLanguageState((i18n.resolvedLanguage || "en-US") as Language)
 
       setError(null)
     } catch (err: unknown) {

@@ -7,7 +7,7 @@ export const LANGUAGE_KEY = 'app_language'
 
 const getStoredLanguage = (): string => {
   const stored = localStorage.getItem(LANGUAGE_KEY)
-  return stored || 'zh-CN'
+  return stored || 'en-US'
 }
 
 export const setLanguage = (lang: string) => {
@@ -23,7 +23,7 @@ i18n
       'zh-CN': { translation: zhCN },
     },
     lng: getStoredLanguage(),
-    fallbackLng: 'zh-CN',
+    fallbackLng: 'en-US',
     interpolation: {
       escapeValue: false,
     },
