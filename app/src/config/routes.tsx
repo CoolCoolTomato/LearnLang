@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/router/protected-route'
+import { InitializationGate } from '@/components/router/initialization-gate'
 import { AppLayout } from '@/components/layout/app-layout'
 
 const Chat = lazy(() => import('@/app/chat/page'))
@@ -9,6 +10,7 @@ const Profile = lazy(() => import('@/app/profile/page'))
 const Vocabulary = lazy(() => import('@/app/vocabulary/page'))
 const SignIn = lazy(() => import('@/app/sign-in/page'))
 const SignUp = lazy(() => import('@/app/sign-up/page'))
+const Initialization = lazy(() => import('@/app/initialize/page'))
 const Developer = lazy(() => import('@/app/developer/page'))
 const DeveloperResource = lazy(() => import('@/app/developer/resource-page'))
 
@@ -26,7 +28,9 @@ export const routes: RouteConfig[] = [
   {
     element: (
       <ProtectedRoute>
-        <AppLayout />
+        <InitializationGate>
+          <AppLayout />
+        </InitializationGate>
       </ProtectedRoute>
     ),
     children: [
@@ -35,6 +39,14 @@ export const routes: RouteConfig[] = [
       { path: "/setting", element: <Setting /> },
       { path: "/profile", element: <Profile /> },
     ]
+  },
+  {
+    path: "/initialize",
+    element: (
+      <ProtectedRoute>
+        <Initialization />
+      </ProtectedRoute>
+    )
   },
   {
     path: "/sign-in",

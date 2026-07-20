@@ -1,4 +1,19 @@
 ﻿{
+    "onboarding": {
+        "title": "Set up your learning space",
+        "description": "Tell us how you learn so LearnLang can tailor every conversation.",
+        "timezone": "Timezone",
+        "nativeLanguage": "Native language",
+        "targetLanguage": "Learning language",
+        "chooseTimezone": "Choose your timezone",
+        "chooseLanguage": "Choose a language",
+        "required": "Choose a timezone, native language, and learning language.",
+        "differentLanguages": "Choose different native and learning languages.",
+        "loadFailed": "Unable to load your preferences.",
+        "saveFailed": "Unable to save your preferences.",
+        "saving": "Saving...",
+        "continue": "Continue"
+    },
     "auth": {
         "loginTitle": "Login",
         "loginDescription": "Enter your account and password to login",

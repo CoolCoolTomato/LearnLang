@@ -1,4 +1,19 @@
 ﻿{
+    "onboarding": {
+        "title": "设置你的学习空间",
+        "description": "告诉我们你的学习方式，让 LearnLang 更好地陪伴每次对话。",
+        "timezone": "时区",
+        "nativeLanguage": "母语",
+        "targetLanguage": "学习语言",
+        "chooseTimezone": "选择时区",
+        "chooseLanguage": "选择语言",
+        "required": "请选择时区、母语和学习语言。",
+        "differentLanguages": "母语和学习语言需要不同。",
+        "loadFailed": "偏好设置加载失败。",
+        "saveFailed": "偏好设置保存失败。",
+        "saving": "保存中...",
+        "continue": "继续"
+    },
     "auth": {
         "loginTitle": "登录",
         "loginDescription": "输入您的账号和密码登录",
