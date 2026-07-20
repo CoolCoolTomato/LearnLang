@@ -37,7 +37,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const location = useLocation()
   const [desktopOpen, setDesktopOpen] = useState(
-    () => localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "false"
+    () => localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true"
   )
   const [mobileOpen, setMobileOpen] = useState(false)
   const [chatConnected, setChatConnected] = useState<boolean | null>(null)
