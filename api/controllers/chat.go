@@ -95,7 +95,7 @@ func (cc *ChatController) GetChatHistory(c *gin.Context) {
 		beforeID = &id
 	}
 
-	messages, err := cc.chatService.GetChatHistory(userID.(int64), beforeID)
+	messages, err := cc.chatService.GetChatHistory(c.Request.Context(), userID.(int64), beforeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch chat history"})
 		return

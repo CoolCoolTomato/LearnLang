@@ -71,8 +71,8 @@ func (s *ChatService) ChatWithVoice(ctx context.Context, userID int64, userMessa
 	return message, nil
 }
 
-func (s *ChatService) GetChatHistory(userID int64, beforeID *int64) ([]models.Message, error) {
-	return s.runtime.GetChatHistory(userID, beforeID)
+func (s *ChatService) GetChatHistory(ctx context.Context, userID int64, beforeID *int64) ([]models.Message, error) {
+	return s.runtime.GetChatHistory(ctx, userID, beforeID)
 }
 
 func (s *ChatService) restartAIResponse(userID int64, userMessage *models.Message) {

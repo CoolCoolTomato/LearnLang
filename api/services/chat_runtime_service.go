@@ -267,9 +267,15 @@ func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64
 	return task.ID, nil
 }
 
-func (crs *ChatRuntimeService) GetChatHistory(userID int64, beforeID *int64) ([]models.Message, error) {
+func (crs *ChatRuntimeService) GetChatHistory(ctx context.Context, userID int64, beforeID *int64) ([]models.Message, error) {
+	if beforeID == nil {
+		if err := crs.ensureWelcomeMessage(ctx, userID); err != nil {
+			return nil, err
+		}
+	}
+
 	var messages []models.Message
-	query := database.DB.Preload("VoiceFile").Where("user_id = ?", userID).Order("id DESC").Limit(20)
+	query := database.DB.WithContext(ctx).Preload("VoiceFile").Where("user_id = ?", userID).Order("id DESC").Limit(20)
 
 	if beforeID != nil {
 		query = query.Where("id < ?", *beforeID)
