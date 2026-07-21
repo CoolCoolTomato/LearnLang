@@ -8,20 +8,7 @@
 
 </div>
 
-<!-- Media placeholder: replace assets/readme/hero.gif with a product walkthrough. -->
-<!-- <p align="center"><img src="./assets/readme/hero.gif" alt="LearnLang walkthrough" width="92%" /></p> -->
-
 LearnLang is a language-learning chat application built around practical conversation. Use text or voice to practice, read bilingual AI replies, collect vocabulary from real messages, and let long-term memory keep your learning context available over time.
-
-## Highlights
-
-| Practice in context | Keep learning over time |
-| --- | --- |
-| Text and voice conversations | Bilingual replies and optional speech |
-| AI reply status and visible failure feedback | Vocabulary lookup from chat messages |
-| Personal vocabulary libraries and JSON import | Conversation summaries and Milvus semantic retrieval |
-| Scheduled messages and reminders | OpenAI-compatible chat, embedding, STT, and TTS providers |
-| Web, desktop, and Docker workflows | PostgreSQL, Redis, Milvus, and Docker Compose |
 
 ## Product Tour
 

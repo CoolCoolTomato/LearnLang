@@ -8,20 +8,7 @@
 
 </div>
 
-<!-- 媒体占位：请替换 assets/readme/hero.gif，建议展示产品引导与首次对话。 -->
-<!-- <p align="center"><img src="./assets/readme/hero.gif" alt="LearnLang 产品演示" width="92%" /></p> -->
-
 LearnLang 是一款围绕真实对话设计的语言学习聊天应用。你可以通过文本或语音练习，阅读 AI 的双语回复，从消息中积累词汇，并让长期记忆保存持续学习所需的上下文。
-
-## 核心能力
-
-| 在语境中练习 | 让学习持续积累 |
-| --- | --- |
-| 文本与语音对话 | 双语回复与可选语音 |
-| AI 回复中的状态提示和失败感知 | 从聊天消息中查询词汇 |
-| 个人词库与 JSON 导入 | 会话摘要与 Milvus 语义检索 |
-| 定时消息与提醒 | OpenAI 兼容的聊天、向量、STT 和 TTS 服务 |
-| Web、桌面端和 Docker 工作流 | PostgreSQL、Redis、Milvus 与 Docker Compose |
 
 ## 产品演示
 
