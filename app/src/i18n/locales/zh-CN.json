@@ -169,7 +169,42 @@
     "systemSettings": {
         "noModels": "无可用模型",
         "loadingModels": "加载中...",
-        "loadModels": "加载模型"
+        "loadModels": "加载模型",
+        "loadModelsFailed": "模型加载失败"
+    },
+    "errors": {
+        "invalidCredentials": "账号或密码错误",
+        "emailExists": "该邮箱已注册",
+        "phoneExists": "该手机号已注册",
+        "contactRequired": "请输入邮箱或手机号",
+        "invalidEmail": "请输入有效的邮箱地址",
+        "invalidPhone": "请输入有效的手机号",
+        "translationTextRequired": "请输入需要翻译的文本",
+        "translationTextTooLong": "翻译文本过长",
+        "vocabularyNotFound": "该词库已不存在",
+        "messageNotFound": "该消息已不存在",
+        "vocabularyNameConflict": "已存在同名词库",
+        "vocabularyLanguagesRequired": "请选择目标语言和母语",
+        "defaultVocabularyRequired": "请至少保留一个默认词库",
+        "vocabularyInvalidImport": "词库文件格式无效",
+        "vocabularyInvalidInput": "词库信息无效",
+        "forbidden": "您没有执行此操作的权限",
+        "notFound": "未找到请求的内容",
+        "requestTimeout": "请求超时，请重试",
+        "conflict": "内容已发生变化，请刷新后重试",
+        "tooManyRequests": "请求过于频繁，请稍后重试"
+    },
+    "developer": {
+        "loadDashboardFailed": "开发者面板加载失败",
+        "loadRecordsFailed": "开发者数据加载失败",
+        "searchQueryRequired": "请输入搜索内容",
+        "searchFailed": "归档记忆搜索失败",
+        "invalidJson": "请输入有效的 JSON 对象",
+        "createSuccess": "记录创建成功",
+        "updateSuccess": "记录更新成功",
+        "saveFailed": "记录保存失败",
+        "deleteSuccess": "所选记录已删除",
+        "deleteFailed": "记录删除失败"
     },
     "common": {
         "locale": "zh",

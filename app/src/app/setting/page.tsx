@@ -125,7 +125,7 @@ export default function Page() {
       })
       setModelState(response.data || [])
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "Failed to load models"))
+      toast.error(getErrorMessage(err, t("systemSettings.loadModelsFailed")))
       setModelState([])
     } finally {
       setLoadingState(false)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ChevronLeft, ChevronRight, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
 import { Navigate, useLocation } from "react-router-dom"
 import { toast } from "sonner"
@@ -43,6 +44,7 @@ function formatValue(value: unknown) {
 }
 
 export default function DeveloperResourcePage() {
+  const { t } = useTranslation()
   const location = useLocation()
   const resourceParam = location.pathname.split("/").filter(Boolean).at(-1)
   const resource = isDeveloperResource(resourceParam) ? resourceParam : null
@@ -71,16 +73,16 @@ export default function DeveloperResourcePage() {
       setTotal(response.total)
       setSelectedIds([])
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to load developer records"))
+      toast.error(getErrorMessage(error, t("developer.loadRecordsFailed")))
     } finally {
       setLoading(false)
     }
-  }, [page, resource])
+  }, [page, resource, t])
 
   const searchArchives = async () => {
     const query = searchQuery.trim()
     if (!query) {
-      toast.error("Enter a search query")
+      toast.error(t("developer.searchQueryRequired"))
       return
     }
     try {
@@ -89,7 +91,7 @@ export default function DeveloperResourcePage() {
       setSearchResults(response.results || [])
       setSearchSubmitted(true)
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to search archive memories"))
+      toast.error(getErrorMessage(error, t("developer.searchFailed")))
     } finally {
       setSearchLoading(false)
     }
@@ -133,7 +135,7 @@ export default function DeveloperResourcePage() {
       if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("invalid")
       values = parsed as Record<string, unknown>
     } catch {
-      toast.error("Enter a valid JSON object")
+      toast.error(t("developer.invalidJson"))
       return
     }
 
@@ -141,15 +143,15 @@ export default function DeveloperResourcePage() {
       setSaving(true)
       if (editingId === null) {
         await createDeveloperRecord(resource, values)
-        toast.success("Record created")
+        toast.success(t("developer.createSuccess"))
       } else {
         await updateDeveloperRecord(resource, editingId, values)
-        toast.success("Record updated")
+        toast.success(t("developer.updateSuccess"))
       }
       setEditorOpen(false)
       await loadRecords()
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to save record"))
+      toast.error(getErrorMessage(error, t("developer.saveFailed")))
     } finally {
       setSaving(false)
     }
@@ -160,11 +162,11 @@ export default function DeveloperResourcePage() {
     if (!window.confirm(`Delete ${selectedIds.length} selected record(s)?`)) return
     try {
       await deleteDeveloperRecords(resource, selectedIds)
-      toast.success("Selected records deleted")
+      toast.success(t("developer.deleteSuccess"))
       if (records.length === selectedIds.length && page > 1) setPage((current) => current - 1)
       else await loadRecords()
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to delete records"))
+      toast.error(getErrorMessage(error, t("developer.deleteFailed")))
     }
   }
 

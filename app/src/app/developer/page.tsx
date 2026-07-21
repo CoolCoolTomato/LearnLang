@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Archive, AudioLines, CalendarCheck2, CalendarClock, FileText, MessageSquare, RefreshCw, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { getDeveloperDashboard } from "@/api/developer"
@@ -15,6 +16,7 @@ function formatBytes(bytes: number) {
 }
 
 export default function DeveloperPage() {
+  const { t } = useTranslation()
   const [dashboard, setDashboard] = useState<DeveloperDashboard | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -23,11 +25,11 @@ export default function DeveloperPage() {
       setLoading(true)
       setDashboard(await getDeveloperDashboard())
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to load developer dashboard"))
+      toast.error(getErrorMessage(error, t("developer.loadDashboardFailed")))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadDashboard()

@@ -169,7 +169,42 @@
     "systemSettings": {
         "noModels": "No models available",
         "loadingModels": "Loading...",
-        "loadModels": "Load Models"
+        "loadModels": "Load Models",
+        "loadModelsFailed": "Failed to load models"
+    },
+    "errors": {
+        "invalidCredentials": "The account or password is incorrect",
+        "emailExists": "This email is already registered",
+        "phoneExists": "This phone number is already registered",
+        "contactRequired": "Enter an email address or phone number",
+        "invalidEmail": "Enter a valid email address",
+        "invalidPhone": "Enter a valid phone number",
+        "translationTextRequired": "Enter text to translate",
+        "translationTextTooLong": "The text is too long to translate",
+        "vocabularyNotFound": "The vocabulary no longer exists",
+        "messageNotFound": "The message no longer exists",
+        "vocabularyNameConflict": "A vocabulary with this name already exists",
+        "vocabularyLanguagesRequired": "Select the target and native languages",
+        "defaultVocabularyRequired": "Keep at least one default vocabulary",
+        "vocabularyInvalidImport": "The vocabulary file is invalid",
+        "vocabularyInvalidInput": "The vocabulary information is invalid",
+        "forbidden": "You do not have permission to perform this action",
+        "notFound": "The requested content was not found",
+        "requestTimeout": "The request timed out. Try again",
+        "conflict": "The content changed. Refresh and try again",
+        "tooManyRequests": "Too many requests. Try again later"
+    },
+    "developer": {
+        "loadDashboardFailed": "Failed to load the developer dashboard",
+        "loadRecordsFailed": "Failed to load developer records",
+        "searchQueryRequired": "Enter a search query",
+        "searchFailed": "Failed to search archive memories",
+        "invalidJson": "Enter a valid JSON object",
+        "createSuccess": "Record created",
+        "updateSuccess": "Record updated",
+        "saveFailed": "Failed to save record",
+        "deleteSuccess": "Selected records deleted",
+        "deleteFailed": "Failed to delete records"
     },
     "common": {
         "locale": "en",
