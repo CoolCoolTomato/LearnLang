@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"io"
+	"log"
 	"os"
 	"time"
 
@@ -14,7 +15,11 @@ func detectMP3DurationSeconds(filePath string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("failed to close MP3 file %s: %v", filePath, err)
+		}
+	}()
 
 	dec := mp3.NewDecoder(f)
 	var (

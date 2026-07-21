@@ -91,6 +91,12 @@ func (s *ChatService) processAIResponse(ctx context.Context, userID int64, input
 	}
 
 	if _, err := s.runAgentChat(ctx, userID, contextBeforeMessageID, userInput); err != nil {
+		if ctx.Err() != nil {
+			return
+		}
+
+		log.Printf("Agent chat failed for user %d: %v", userID, err)
+		s.runtime.SendAgentError(userID)
 		return
 	}
 }

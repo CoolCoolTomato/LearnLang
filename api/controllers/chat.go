@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"learnlang-api/agent"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -38,7 +39,11 @@ func (cc *ChatController) VoiceChat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open audio file"})
 		return
 	}
-	defer audioFile.Close()
+	defer func() {
+		if err := audioFile.Close(); err != nil {
+			log.Printf("failed to close uploaded chat audio file: %v", err)
+		}
+	}()
 
 	text, voiceFileID, err := cc.chatService.TranscribeAudio(c.Request.Context(), userID.(int64), audioFile)
 	if err != nil {

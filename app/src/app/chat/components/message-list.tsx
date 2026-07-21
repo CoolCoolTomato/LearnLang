@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { format, isToday, isYesterday } from "date-fns"
 import { useTranslation } from "react-i18next"
-import { User, Bot } from "lucide-react"
+import { User, Bot, Sparkles } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -18,21 +18,31 @@ interface MessageListProps {
   loading?: boolean
   loadingMore?: boolean
   hasMore?: boolean
+  isResponding?: boolean
   onLoadMore?: () => void
 }
 
-export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMore }: MessageListProps) {
+export function MessageList({
+  messages,
+  loading,
+  loadingMore,
+  hasMore,
+  isResponding,
+  onLoadMore,
+}: MessageListProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const prevScrollHeightRef = useRef(0)
   const prevMessageCountRef = useRef(0)
-  const [showTranslation, setShowTranslation] = useState<Record<number, boolean>>({})
+  const [showTranslation, setShowTranslation] = useState<
+    Record<number, boolean>
+  >({})
   const timeoutRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
   const toggleTranslation = (messageId: number) => {
-    setShowTranslation(prev => {
+    setShowTranslation((prev) => {
       const newState = !prev[messageId]
 
       if (timeoutRefs.current[messageId]) {
@@ -41,7 +51,7 @@ export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMor
 
       if (newState) {
         timeoutRefs.current[messageId] = setTimeout(() => {
-          setShowTranslation(prev => ({ ...prev, [messageId]: false }))
+          setShowTranslation((prev) => ({ ...prev, [messageId]: false }))
           delete timeoutRefs.current[messageId]
         }, 3000)
       }
@@ -64,15 +74,23 @@ export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMor
     return format(date, "M月d日")
   }
 
-  const shouldShowDateSeparator = (currentMessage: ChatMessage, prevMessage?: ChatMessage) => {
+  const shouldShowDateSeparator = (
+    currentMessage: ChatMessage,
+    prevMessage?: ChatMessage
+  ) => {
     if (!prevMessage) return true
-    const currentDate = format(new Date(currentMessage.created_at), "yyyy-MM-dd")
+    const currentDate = format(
+      new Date(currentMessage.created_at),
+      "yyyy-MM-dd"
+    )
     const prevDate = format(new Date(prevMessage.created_at), "yyyy-MM-dd")
     return currentDate !== prevDate
   }
 
   const getViewport = () => {
-    return scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLDivElement | null
+    return scrollAreaRef.current?.querySelector(
+      '[data-slot="scroll-area-viewport"]'
+    ) as HTMLDivElement | null
   }
 
   useEffect(() => {
@@ -87,8 +105,8 @@ export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMor
       }
     }
 
-    viewport.addEventListener('scroll', handleScrollEvent)
-    return () => viewport.removeEventListener('scroll', handleScrollEvent)
+    viewport.addEventListener("scroll", handleScrollEvent)
+    return () => viewport.removeEventListener("scroll", handleScrollEvent)
   }, [hasMore, loadingMore, onLoadMore])
 
   useEffect(() => {
@@ -115,93 +133,114 @@ export function MessageList({ messages, loading, loadingMore, hasMore, onLoadMor
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <div className="text-muted-foreground">{t("chat.loading")}</div>
       </div>
     )
   }
 
-  const sortedMessages = [...messages].sort((a, b) =>
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  const sortedMessages = [...messages].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 h-full">
-      <div className="p-4 min-h-full">
+    <ScrollArea ref={scrollAreaRef} className="h-full flex-1">
+      <div className="min-h-full p-4">
+        {isResponding && (
+          <div className="sticky top-0 z-10 flex justify-center pb-3">
+            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/95 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur">
+              <Sparkles className="size-4 animate-pulse text-primary" />
+              <span>{t("chat.aiThinking")}</span>
+              <span className="flex gap-1" aria-hidden="true">
+                <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-primary" />
+              </span>
+            </div>
+          </div>
+        )}
         {loadingMore && (
-          <div className="text-center text-sm text-muted-foreground py-2">
+          <div className="py-2 text-center text-sm text-muted-foreground">
             {t("chat.loading")}
           </div>
         )}
         <div className="space-y-4 md:px-1">
-        {sortedMessages.map((message, index) => (
-          <div key={message.id}>
-            {shouldShowDateSeparator(message, sortedMessages[index - 1]) && (
-              <div className="flex items-center justify-center my-6">
-                <div className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                  {formatDateLabel(new Date(message.created_at))}
+          {sortedMessages.map((message, index) => (
+            <div key={message.id}>
+              {shouldShowDateSeparator(message, sortedMessages[index - 1]) && (
+                <div className="my-6 flex items-center justify-center">
+                  <div className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                    {formatDateLabel(new Date(message.created_at))}
+                  </div>
                 </div>
-              </div>
-            )}
-            <div
-              className={cn(
-                "flex gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <Avatar
-                  className="w-10 h-10 cursor-pointer"
-                  onClick={() => message.translation && toggleTranslation(message.id)}
-                >
-                  <AvatarFallback>
-                    <Bot className="w-5 h-5" />
-                  </AvatarFallback>
-                </Avatar>
               )}
               <div
                 className={cn(
-                  "max-w-[70%] rounded-lg px-4 py-2",
-                  message.role === "user"
-                    ? "chat-user-bubble"
-                    : "bg-muted"
+                  "flex gap-3",
+                  message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
-                {message.voice_file && (
-                  <VoicePlayer voiceFile={message.voice_file} role={message.role === "user" ? "user" : "assistant"} />
+                {message.role === "assistant" && (
+                  <Avatar
+                    className="h-10 w-10 cursor-pointer"
+                    onClick={() =>
+                      message.translation && toggleTranslation(message.id)
+                    }
+                  >
+                    <AvatarFallback>
+                      <Bot className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
                 )}
                 <div
                   className={cn(
-                    showTranslation[message.id] && message.translation
-                      ? "hidden"
-                      : "block"
+                    "max-w-[70%] rounded-lg px-4 py-2",
+                    message.role === "user" ? "chat-user-bubble" : "bg-muted"
                   )}
                 >
-                  <MessageVocabularyText message={message} />
+                  {message.voice_file && (
+                    <VoicePlayer
+                      voiceFile={message.voice_file}
+                      role={message.role === "user" ? "user" : "assistant"}
+                    />
+                  )}
+                  <div
+                    className={cn(
+                      showTranslation[message.id] && message.translation
+                        ? "hidden"
+                        : "block"
+                    )}
+                  >
+                    <MessageVocabularyText message={message} />
+                  </div>
+                  {showTranslation[message.id] && message.translation ? (
+                    <div className="text-sm break-words whitespace-pre-wrap">
+                      {message.translation}
+                    </div>
+                  ) : null}
+                  {message.created_at && (
+                    <div className="mt-1 text-xs opacity-70">
+                      {format(new Date(message.created_at), "HH:mm")}
+                    </div>
+                  )}
                 </div>
-                {showTranslation[message.id] && message.translation ? (
-                  <div className="text-sm whitespace-pre-wrap break-words">
-                    {message.translation}
-                  </div>
-                ) : null}
-                {message.created_at && (
-                  <div className="text-xs opacity-70 mt-1">
-                    {format(new Date(message.created_at), "HH:mm")}
-                  </div>
+                {message.role === "user" && (
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={resolveAvatarUrl(user?.avatar_url)}
+                      alt={user?.username || "User"}
+                    />
+                    <AvatarFallback>
+                      <User className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
                 )}
               </div>
-              {message.role === "user" && (
-                <Avatar className="w-10 h-10">
-                  <AvatarImage src={resolveAvatarUrl(user?.avatar_url)} alt={user?.username || "User"} />
-                  <AvatarFallback>
-                    <User className="w-5 h-5" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
             </div>
-          </div>
-        ))}
-        <div ref={bottomRef} /></div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
       </div>
     </ScrollArea>
   )

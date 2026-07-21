@@ -6,7 +6,11 @@ import { useTranslation } from "react-i18next"
 import { MessageList } from "./components/message-list"
 import { MessageInput } from "./components/message-input"
 import { getChatHistory, sendChatMessage, sendVoiceMessage } from "@/api/chat"
-import type { ChatMessage } from "@/types/chat"
+import type {
+  AgentErrorEvent,
+  ChatMessage,
+  ChatWebSocketEvent,
+} from "@/types/chat"
 import { API_CONFIG, TOKEN_KEY } from "@/api/config"
 import { getErrorMessage } from "@/lib/error"
 import { useOutletContext } from "react-router-dom"
@@ -18,6 +22,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [sending, setSending] = useState(false)
+  const [isResponding, setIsResponding] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
   const { setChatConnected } = useOutletContext<AppLayoutOutletContext>()
@@ -46,8 +51,15 @@ export default function ChatPage() {
 
     ws.onmessage = (event) => {
       try {
-        const aiMessage: ChatMessage = JSON.parse(event.data)
-        setMessages((prev) => [...prev, aiMessage])
+        const message: ChatWebSocketEvent = JSON.parse(event.data)
+        if ((message as AgentErrorEvent).type === "agent_error") {
+          setIsResponding(false)
+          toast.error(t("chat.agentFailed"))
+          return
+        }
+
+        setMessages((prev) => [...prev, message as ChatMessage])
+        setIsResponding(false)
       } catch (err) {
         console.error("Failed to parse WebSocket message:", err)
       }
@@ -137,6 +149,7 @@ export default function ChatPage() {
       setSending(true)
       const userMessage = await sendChatMessage({ message })
       setMessages((prev) => [...prev, userMessage])
+      setIsResponding(true)
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t("chat.sendFailed")))
     } finally {
@@ -149,6 +162,7 @@ export default function ChatPage() {
       setSending(true)
       const userMessage = await sendVoiceMessage(audioFile)
       setMessages((prev) => [...prev, userMessage])
+      setIsResponding(true)
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t("chat.sendFailed")))
     } finally {
@@ -164,6 +178,7 @@ export default function ChatPage() {
           loading={loading}
           loadingMore={loadingMore}
           hasMore={hasMore}
+          isResponding={isResponding}
           onLoadMore={loadMoreMessages}
         />
       </div>

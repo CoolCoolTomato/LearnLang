@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -94,7 +95,11 @@ func (s *Store) InsertArchive(ctx context.Context, userID int64, summary string,
 
 	flushTask, err := s.client.Flush(ctx, milvusclient.NewFlushOption(s.cfg.Collection))
 	if err == nil {
-		_ = flushTask.Await(ctx)
+		if err := flushTask.Await(ctx); err != nil {
+			log.Printf("failed to await Milvus archive insert flush: %v", err)
+		}
+	} else {
+		log.Printf("failed to flush Milvus archive insert: %v", err)
 	}
 
 	return id, nil
@@ -258,7 +263,9 @@ func summariesFromResult(result milvusclient.ResultSet) ([]Summary, error) {
 		}
 
 		var linkedMessageIDs []int64
-		_ = json.Unmarshal([]byte(messageIDsJSON), &linkedMessageIDs)
+		if err := json.Unmarshal([]byte(messageIDsJSON), &linkedMessageIDs); err != nil {
+			log.Printf("failed to unmarshal memory message IDs for summary %s: %v", id, err)
+		}
 
 		items = append(items, Summary{
 			ID:              id,

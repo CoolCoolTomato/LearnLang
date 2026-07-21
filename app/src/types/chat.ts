@@ -1,9 +1,9 @@
 export interface ChatRequest {
   message: string
 }
-export type MessageRole = 'user' | 'assistant' | 'system'
+export type MessageRole = "user" | "assistant" | "system"
 
-export type InputType = 'text' | 'audio'
+export type InputType = "text" | "audio"
 
 export type ChatResponse = ChatMessage
 
@@ -35,7 +35,16 @@ export interface ChatMessage {
   created_at: string
 }
 
-export interface GetChatHistoryParams extends Record<string, string | number | boolean | undefined> {
+export interface AgentErrorEvent {
+  type: "agent_error"
+}
+
+export type ChatWebSocketEvent = ChatMessage | AgentErrorEvent
+
+export interface GetChatHistoryParams extends Record<
+  string,
+  string | number | boolean | undefined
+> {
   before_id?: number
 }
 

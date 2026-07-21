@@ -12,7 +12,12 @@ import (
 )
 
 func main() {
-	loc, _ := time.LoadLocation("UTC")
+	loc := time.UTC
+	if loadedLocation, err := time.LoadLocation("UTC"); err != nil {
+		log.Printf("failed to load UTC timezone, using time.UTC: %v", err)
+	} else {
+		loc = loadedLocation
+	}
 	time.Local = loc
 	cfg := config.Load()
 

@@ -6,6 +6,7 @@ import (
 	"learnlang-api/agent/memory"
 	"learnlang-api/database"
 	"learnlang-api/models"
+	"log"
 )
 
 type LongTermMemorySearchTool struct {
@@ -110,7 +111,9 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 			break
 		}
 	}
-	_ = t.Store.DeleteArchives(ctx, orphanIDs)
+	if err := t.Store.DeleteArchives(ctx, orphanIDs); err != nil {
+		log.Printf("failed to delete %d orphaned archive vectors for user %d: %v", len(orphanIDs), t.UserID, err)
+	}
 
 	return marshalToolResult(map[string]any{
 		"query":    input,

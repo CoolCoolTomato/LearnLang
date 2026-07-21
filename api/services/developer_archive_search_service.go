@@ -7,6 +7,7 @@ import (
 	"learnlang-api/agent/memory"
 	"learnlang-api/database"
 	"learnlang-api/models"
+	"log"
 	"strings"
 	"time"
 )
@@ -94,7 +95,9 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 			break
 		}
 	}
-	_ = s.memoryStore.DeleteArchives(ctx, orphanIDs)
+	if err := s.memoryStore.DeleteArchives(ctx, orphanIDs); err != nil {
+		log.Printf("failed to delete %d orphaned archive vectors for user %d: %v", len(orphanIDs), userID, err)
+	}
 
 	allMessageIDs := make([]int64, 0)
 	seenMessageIDs := make(map[int64]struct{})

@@ -50,7 +50,9 @@ func NewChatRuntimeService(
 
 func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64, audioFile io.Reader) (string, *int64, error) {
 	uploadDir := "uploads/voices"
-	os.MkdirAll(uploadDir, 0755)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", nil, err
+	}
 
 	filename := fmt.Sprintf("%d_%d_%d.mp3", userID, time.Now().Unix(), rand.Intn(10000))
 	filepath := filepath.Join(uploadDir, filename)
@@ -62,12 +64,16 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 
 	fileSize, err := io.Copy(file, audioFile)
 	if err != nil {
-		file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("failed to close uploaded voice file after copy error: %v", closeErr)
+		}
 		return "", nil, err
 	}
 
 	if err := file.Sync(); err != nil {
-		file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("failed to close uploaded voice file after sync error: %v", closeErr)
+		}
 		return "", nil, err
 	}
 	if err := file.Close(); err != nil {
@@ -78,7 +84,11 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 	if err != nil {
 		return "", nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("failed to close uploaded voice file: %v", err)
+		}
+	}()
 
 	settings, err := crs.userSettingsService.GetUserSettings(userID)
 	if err != nil {
@@ -149,10 +159,16 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Printf("failed to close text-to-speech response body: %v", err)
+		}
+	}()
 
 	uploadDir := "uploads/voices"
-	os.MkdirAll(uploadDir, 0755)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, err
+	}
 
 	filename := fmt.Sprintf("%d_%d_%d.mp3", userID, time.Now().Unix(), rand.Intn(10000))
 	filepath := filepath.Join(uploadDir, filename)
@@ -164,12 +180,16 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 
 	fileSize, err := io.Copy(file, res.Body)
 	if err != nil {
-		file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("failed to close generated voice file after copy error: %v", closeErr)
+		}
 		return nil, err
 	}
 
 	if err := file.Sync(); err != nil {
-		file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("failed to close generated voice file after sync error: %v", closeErr)
+		}
 		return nil, err
 	}
 	if err := file.Close(); err != nil {
@@ -223,7 +243,10 @@ func (crs *ChatRuntimeService) SaveAssistantReply(ctx context.Context, userID in
 		return 0, err
 	}
 
-	voiceFileID, _ := crs.TextToSpeech(ctx, userID, original, settings)
+	voiceFileID, ttsErr := crs.TextToSpeech(ctx, userID, original, settings)
+	if ttsErr != nil {
+		log.Printf("failed to generate assistant voice for user %d: %v", userID, ttsErr)
+	}
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -233,15 +256,33 @@ func (crs *ChatRuntimeService) SaveAssistantReply(ctx context.Context, userID in
 		return 0, err
 	}
 
-	database.DB.WithContext(ctx).Preload("VoiceFile").First(message, message.ID)
+	if err := database.DB.WithContext(ctx).Preload("VoiceFile").First(message, message.ID).Error; err != nil {
+		log.Printf("failed to preload assistant voice file for message %d: %v", message.ID, err)
+	}
 	if message.VoiceFile != nil {
 		message.VoiceFile.VoiceURL = ""
 	}
 
-	messageJSON, _ := json.Marshal(message)
-	crs.wsHub.SendToUser(userID, messageJSON)
+	messageJSON, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("failed to marshal assistant message %d for user %d: %v", message.ID, userID, err)
+	} else {
+		crs.wsHub.SendToUser(userID, messageJSON)
+	}
 
 	return message.ID, nil
+}
+
+func (crs *ChatRuntimeService) SendAgentError(userID int64) {
+	eventJSON, err := json.Marshal(struct {
+		Type string `json:"type"`
+	}{Type: "agent_error"})
+	if err != nil {
+		log.Printf("failed to marshal Agent error event: %v", err)
+		return
+	}
+
+	crs.wsHub.SendToUser(userID, eventJSON)
 }
 
 func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64, message, translation string, scheduledAt time.Time) (int64, error) {

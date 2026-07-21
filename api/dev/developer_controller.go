@@ -3,6 +3,7 @@ package dev
 import (
 	"errors"
 	"learnlang-api/services"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -34,8 +35,16 @@ func (cc *Controller) Dashboard(c *gin.Context) {
 }
 
 func (cc *Controller) List(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		log.Printf("invalid developer list page query: %v", err)
+		page = 1
+	}
+	size, err := strconv.Atoi(c.DefaultQuery("size", "20"))
+	if err != nil {
+		log.Printf("invalid developer list size query: %v", err)
+		size = 20
+	}
 	result, err := cc.service.List(c.Param("resource"), page, size)
 	if err != nil {
 		cc.writeError(c, err)

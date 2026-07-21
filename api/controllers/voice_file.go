@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"learnlang-api/services"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,7 +37,11 @@ func (vfc *VoiceFileController) GetVoiceFileContent(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch remote file"})
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("failed to close remote voice response for file %d: %v", id, err)
+			}
+		}()
 
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 		return
