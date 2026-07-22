@@ -31,6 +31,7 @@ const navigation = [
 
 export interface AppLayoutOutletContext {
   setChatConnected: (connected: boolean | null) => void
+  setChatResponding: (responding: boolean) => void
 }
 
 export function AppLayout() {
@@ -41,6 +42,7 @@ export function AppLayout() {
   )
   const [mobileOpen, setMobileOpen] = useState(false)
   const [chatConnected, setChatConnected] = useState<boolean | null>(null)
+  const [chatResponding, setChatResponding] = useState(false)
 
   const toggleDesktop = useCallback(() => {
     setDesktopOpen((open) => {
@@ -141,8 +143,19 @@ export function AppLayout() {
               ) : null}
             </div>
             {location.pathname === "/chat" ? (
-              <p className="truncate text-[11px] text-muted-foreground">
-                {t("chat.headerSubtitle", "Your AI language partner")}
+              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                {chatResponding ? (
+                  <>
+                    <span>{t("chat.aiThinking")}</span>
+                    <span className="flex gap-0.5" aria-hidden="true">
+                      <span className="size-1 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+                      <span className="size-1 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+                      <span className="size-1 animate-bounce rounded-full bg-primary" />
+                    </span>
+                  </>
+                ) : (
+                  t("chat.headerSubtitle", "Your AI language partner")
+                )}
               </p>
             ) : null}
           </div>
@@ -159,7 +172,7 @@ export function AppLayout() {
               : "overflow-auto"
           )}
         >
-          <Outlet context={{ setChatConnected }} />
+          <Outlet context={{ setChatConnected, setChatResponding }} />
         </div>
       </main>
     </div>

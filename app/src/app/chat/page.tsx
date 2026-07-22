@@ -25,7 +25,8 @@ export default function ChatPage() {
   const [isResponding, setIsResponding] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
-  const { setChatConnected } = useOutletContext<AppLayoutOutletContext>()
+  const { setChatConnected, setChatResponding } =
+    useOutletContext<AppLayoutOutletContext>()
 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -128,6 +129,11 @@ export default function ChatPage() {
     return () => setChatConnected(null)
   }, [setChatConnected, wsConnected])
 
+  useEffect(() => {
+    setChatResponding(isResponding)
+    return () => setChatResponding(false)
+  }, [isResponding, setChatResponding])
+
   const loadMoreMessages = async () => {
     if (loadingMore || !hasMore || messages.length === 0) return
 
@@ -178,7 +184,6 @@ export default function ChatPage() {
           loading={loading}
           loadingMore={loadingMore}
           hasMore={hasMore}
-          isResponding={isResponding}
           onLoadMore={loadMoreMessages}
         />
       </div>

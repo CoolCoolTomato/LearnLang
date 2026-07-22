@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { format, isToday, isYesterday } from "date-fns"
 import { useTranslation } from "react-i18next"
-import { User, Bot, Sparkles } from "lucide-react"
+import { User, Bot } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -18,7 +18,6 @@ interface MessageListProps {
   loading?: boolean
   loadingMore?: boolean
   hasMore?: boolean
-  isResponding?: boolean
   onLoadMore?: () => void
 }
 
@@ -27,7 +26,6 @@ export function MessageList({
   loading,
   loadingMore,
   hasMore,
-  isResponding,
   onLoadMore,
 }: MessageListProps) {
   const { t } = useTranslation()
@@ -147,19 +145,6 @@ export function MessageList({
   return (
     <ScrollArea ref={scrollAreaRef} className="h-full flex-1">
       <div className="min-h-full p-4">
-        {isResponding && (
-          <div className="sticky top-0 z-10 flex justify-center pb-3">
-            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/95 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur">
-              <Sparkles className="size-4 animate-pulse text-primary" />
-              <span>{t("chat.aiThinking")}</span>
-              <span className="flex gap-1" aria-hidden="true">
-                <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
-                <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
-                <span className="size-1.5 animate-bounce rounded-full bg-primary" />
-              </span>
-            </div>
-          </div>
-        )}
         {loadingMore && (
           <div className="py-2 text-center text-sm text-muted-foreground">
             {t("chat.loading")}
