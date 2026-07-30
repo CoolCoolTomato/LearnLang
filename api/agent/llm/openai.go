@@ -1,31 +1,34 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/openai"
+	einoopenai "github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino/components/model"
 )
 
-func newOpenAI(apiKey, apiBaseURL, model string) (llms.Model, error) {
+func newOpenAI(ctx context.Context, apiKey, apiBaseURL, modelName string, options Options) (model.ToolCallingChatModel, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return nil, fmt.Errorf("openai api key is required")
 	}
 
-	model = strings.TrimSpace(model)
-	if model == "" {
-		model = "gpt-4o-mini"
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		modelName = "gpt-4o-mini"
 	}
 
-	opts := []openai.Option{
-		openai.WithToken(apiKey),
-		openai.WithModel(model),
+	config := &einoopenai.ChatModelConfig{
+		APIKey:      apiKey,
+		BaseURL:     strings.TrimSpace(apiBaseURL),
+		Model:       modelName,
+		Temperature: options.Temperature,
 	}
-	if strings.TrimSpace(apiBaseURL) != "" {
-		opts = append(opts, openai.WithBaseURL(apiBaseURL))
+	if options.MaxTokens > 0 {
+		maxTokens := options.MaxTokens
+		config.MaxTokens = &maxTokens
 	}
-
-	return openai.New(opts...)
+	return einoopenai.NewChatModel(ctx, config)
 }

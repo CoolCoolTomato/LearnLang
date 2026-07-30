@@ -1,31 +1,37 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/anthropic"
+	"github.com/cloudwego/eino-ext/components/model/claude"
+	"github.com/cloudwego/eino/components/model"
 )
 
-func newClaudeCode(apiKey, apiBaseURL, model string) (llms.Model, error) {
+func newClaudeCode(ctx context.Context, apiKey, apiBaseURL, modelName string, options Options) (model.ToolCallingChatModel, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return nil, fmt.Errorf("claudecode api key is required")
 	}
 
-	model = strings.TrimSpace(model)
-	if model == "" {
-		model = "claude-sonnet-4-5"
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		modelName = "claude-sonnet-4-5"
 	}
 
-	opts := []anthropic.Option{
-		anthropic.WithToken(apiKey),
-		anthropic.WithModel(model),
+	maxTokens := options.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 4096
 	}
-	if strings.TrimSpace(apiBaseURL) != "" {
-		opts = append(opts, anthropic.WithBaseURL(apiBaseURL))
+	config := &claude.Config{
+		APIKey:      apiKey,
+		Model:       modelName,
+		MaxTokens:   maxTokens,
+		Temperature: options.Temperature,
 	}
-
-	return anthropic.New(opts...)
+	if baseURL := strings.TrimSpace(apiBaseURL); baseURL != "" {
+		config.BaseURL = &baseURL
+	}
+	return claude.NewChatModel(ctx, config)
 }
