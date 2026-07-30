@@ -8,8 +8,9 @@ import (
 	"learnlang-api/services"
 	"strings"
 
-	lcagents "github.com/tmc/langchaingo/agents"
-	lctools "github.com/tmc/langchaingo/tools"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+	agenttools "learnlang-api/agent/tools"
 )
 
 const archiveBatchPlanAttempts = 2
@@ -22,42 +23,53 @@ type archiveSegment struct {
 type llmSegmenter struct{}
 
 func (llmSegmenter) Generate(ctx context.Context, settings *models.UserSettings, window *services.ArchiveWindow) ([]archiveSegment, error) {
-	model, err := llm.New(settings.APIKey, settings.APIBaseURL, settings.Model, settings.LLMType)
+	chatModel, err := llm.New(ctx, settings.APIKey, settings.APIBaseURL, settings.Model, settings.LLMType)
 	if err != nil {
 		return nil, err
 	}
 
 	state := newArchiveState(window.Candidates, window.Reserved)
 	rangeTool := archiveConversationRangeTool{state: state}
-	tools := []lctools.Tool{rangeTool}
+	einoTool := agenttools.NewEinoTool(rangeTool, schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+		"ranges": {Type: schema.Array, Desc: "chronological archive ranges", Required: true, ElemInfo: &schema.ParameterInfo{Type: schema.Object, SubParams: map[string]*schema.ParameterInfo{
+			"summary":  {Type: schema.String, Desc: "retrieval-oriented archive summary", Required: true},
+			"start_id": {Type: schema.Integer, Desc: "first candidate ID", Required: true},
+			"end_id":   {Type: schema.Integer, Desc: "last candidate ID", Required: true},
+		}}},
+	}), nil)
+	toolInfo, err := einoTool.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	modelWithTools, err := chatModel.WithTools([]*schema.ToolInfo{toolInfo})
+	if err != nil {
+		return nil, err
+	}
 	promptWindow := state.CurrentWindow()
 	input := buildArchiveInput(promptWindow.Candidates, promptWindow.Reserved)
 	var lastObservation string
 
 	for attempt := 0; attempt < archiveBatchPlanAttempts; attempt++ {
-		agent := lcagents.NewOpenAIFunctionsAgent(
-			model,
-			tools,
-			lcagents.NewOpenAIOption().WithSystemMessage(archiveSystemPrompt()),
-		)
-
 		planInput := input
 		if lastObservation != "" {
 			planInput += "\nThe previous tool call was rejected. Correct the input using this observation:\n" + lastObservation
 		}
-		actions, _, err := agent.Plan(ctx, nil, map[string]string{"input": planInput})
+		response, err := modelWithTools.Generate(ctx, []*schema.Message{
+			schema.SystemMessage(archiveSystemPrompt()),
+			schema.UserMessage(planInput),
+		}, model.WithToolChoice(schema.ToolChoiceForced))
 		if err != nil {
 			return nil, err
 		}
-		if len(actions) == 0 {
+		if len(response.ToolCalls) == 0 {
 			return nil, fmt.Errorf("archive agent did not call archive_conversation_range")
 		}
 
-		for _, action := range actions {
-			if !strings.EqualFold(action.Tool, rangeTool.Name()) {
+		for _, action := range response.ToolCalls {
+			if !strings.EqualFold(action.Function.Name, rangeTool.Name()) {
 				continue
 			}
-			observation, err := rangeTool.Call(ctx, action.ToolInput)
+			observation, err := einoTool.InvokableRun(ctx, action.Function.Arguments)
 			if err != nil {
 				return nil, err
 			}

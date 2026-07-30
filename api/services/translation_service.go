@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	agentllm "learnlang-api/agent/llm"
 	"learnlang-api/models"
 	"strings"
 	"unicode/utf8"
 
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/anthropic"
-	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 )
 
 const MaxTranslationTextLength = 5000
@@ -76,20 +76,18 @@ func (s *TranslationService) Translate(ctx context.Context, userID int64, text s
 }
 
 func generateTranslation(ctx context.Context, settings *models.UserSettings, prompt string) (string, error) {
-	model, err := newTranslationLLM(settings)
+	chatModel, err := newTranslationLLM(ctx, settings)
 	if err != nil {
 		return "", err
 	}
-	return llms.GenerateFromSinglePrompt(
-		ctx,
-		model,
-		prompt,
-		llms.WithTemperature(0),
-		llms.WithMaxTokens(2048),
-	)
+	response, err := chatModel.Generate(ctx, []*schema.Message{schema.UserMessage(prompt)})
+	if err != nil {
+		return "", err
+	}
+	return response.Content, nil
 }
 
-func newTranslationLLM(settings *models.UserSettings) (llms.Model, error) {
+func newTranslationLLM(ctx context.Context, settings *models.UserSettings) (model.ToolCallingChatModel, error) {
 	apiKey := strings.TrimSpace(settings.APIKey)
 	if apiKey == "" {
 		apiKey = strings.TrimSpace(settings.STTAPIKey)
@@ -102,36 +100,11 @@ func newTranslationLLM(settings *models.UserSettings) (llms.Model, error) {
 	if apiBaseURL == "" {
 		apiBaseURL = strings.TrimSpace(settings.STTAPIBaseURL)
 	}
-	model := strings.TrimSpace(settings.Model)
-
-	switch strings.ToLower(strings.TrimSpace(settings.LLMType)) {
-	case "", "openai":
-		if model == "" {
-			model = "gpt-4o-mini"
-		}
-		opts := []openai.Option{
-			openai.WithToken(apiKey),
-			openai.WithModel(model),
-		}
-		if apiBaseURL != "" {
-			opts = append(opts, openai.WithBaseURL(apiBaseURL))
-		}
-		return openai.New(opts...)
-	case "anthropic":
-		if model == "" {
-			model = "claude-sonnet-4-5"
-		}
-		opts := []anthropic.Option{
-			anthropic.WithToken(apiKey),
-			anthropic.WithModel(model),
-		}
-		if apiBaseURL != "" {
-			opts = append(opts, anthropic.WithBaseURL(apiBaseURL))
-		}
-		return anthropic.New(opts...)
-	default:
-		return nil, fmt.Errorf("unsupported translation LLM type: %s", settings.LLMType)
-	}
+	temperature := float32(0)
+	return agentllm.NewWithOptions(ctx, apiKey, apiBaseURL, settings.Model, settings.LLMType, agentllm.Options{
+		MaxTokens:   2048,
+		Temperature: &temperature,
+	})
 }
 
 func buildTranslationPrompt(text, nativeLanguage, targetLanguage string) (string, error) {

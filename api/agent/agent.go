@@ -9,9 +9,10 @@ import (
 	"learnlang-api/services"
 	"time"
 
-	lcagents "github.com/tmc/langchaingo/agents"
-	"github.com/tmc/langchaingo/chains"
-	lctools "github.com/tmc/langchaingo/tools"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/flow/agent/react"
+	"github.com/cloudwego/eino/schema"
 )
 
 type Config struct {
@@ -25,6 +26,8 @@ type Service struct {
 	runtime           *services.ChatRuntimeService
 	vocabularyService *services.VocabularyService
 }
+
+const maxChatToolIterations = 12
 
 func NewService(cfg Config) *Service {
 	return &Service{
@@ -44,15 +47,17 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		return nil, err
 	}
 
-	llm, err := agentllm.New(req.Settings.APIKey, req.Settings.APIBaseURL, req.Settings.Model, req.Settings.LLMType)
+	llm, err := agentllm.New(ctx, req.Settings.APIKey, req.Settings.APIBaseURL, req.Settings.Model, req.Settings.LLMType)
 	if err != nil {
 		return nil, err
 	}
 
 	turnState := agenttools.NewTurnState()
-	tools := []lctools.Tool{
-		agenttools.UserProfileSummaryTool{UserID: req.UserID},
-		agenttools.LongTermMemorySearchTool{
+	tools := []tool.BaseTool{
+		agenttools.NewEinoTool(agenttools.UserProfileSummaryTool{UserID: req.UserID}, objectParams(map[string]*schema.ParameterInfo{
+			"summary": {Type: schema.String, Desc: "complete updated user profile", Required: true},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.LongTermMemorySearchTool{
 			UserID:      req.UserID,
 			Limit:       5,
 			Timezone:    req.Timezone,
@@ -62,40 +67,62 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			Model:       req.Settings.EmbeddingModel,
 			FallbackKey: req.Settings.APIKey,
 			FallbackURL: req.Settings.APIBaseURL,
-		},
-		agenttools.ArchivedConversationKeywordSearchTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"query": {Type: schema.String, Desc: "standalone semantic retrieval query", Required: true},
+		}), agenttools.JSONStringField("query")),
+		agenttools.NewEinoTool(agenttools.ArchivedConversationKeywordSearchTool{
 			UserID:   req.UserID,
 			Timezone: req.Timezone,
-		},
-		agenttools.SendChatReplyTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"keyword":    {Type: schema.String, Desc: "exact phrase to search", Required: true},
+			"start_time": {Type: schema.String, Desc: "optional RFC3339 start time"},
+			"end_time":   {Type: schema.String, Desc: "optional RFC3339 end time"},
+			"limit":      {Type: schema.Integer, Desc: "maximum archive count"},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.SendChatReplyTool{
 			UserID:  req.UserID,
 			Runtime: s.runtime,
 			State:   turnState,
-		},
-		agenttools.CompleteChatTurnTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"messages": {Type: schema.Array, Desc: "ordered reply sentences", Required: true, ElemInfo: &schema.ParameterInfo{Type: schema.Object, SubParams: map[string]*schema.ParameterInfo{
+				"original":    {Type: schema.String, Desc: "target-language sentence", Required: true},
+				"translation": {Type: schema.String, Desc: "native-language translation", Required: true},
+			}}},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.CompleteChatTurnTool{
 			State: turnState,
-		},
-		agenttools.ScheduleMessageTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"detected_language": {Type: schema.String, Desc: "detected language code", Required: true},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.ScheduleMessageTool{
 			UserID:   req.UserID,
 			Timezone: req.Timezone,
 			Runtime:  s.runtime,
-		},
-		agenttools.RandomNewVocabularyWordTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"message":      {Type: schema.String, Desc: "target-language message", Required: true},
+			"translation":  {Type: schema.String, Desc: "native-language translation", Required: true},
+			"scheduled_at": {Type: schema.String, Desc: "local datetime", Required: true},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.RandomNewVocabularyWordTool{
 			UserID:           req.UserID,
 			RequestMessageID: req.ContextBeforeMessageID,
 			TargetLanguage:   req.Settings.TargetLanguage,
 			NativeLanguage:   req.Settings.NativeLanguage,
 			Vocabulary:       s.vocabularyService,
 			State:            turnState,
-		},
-		agenttools.RandomOldVocabularyWordTool{
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"count": {Type: schema.Integer, Desc: "requested word count"},
+		}), nil),
+		agenttools.NewEinoTool(agenttools.RandomOldVocabularyWordTool{
 			UserID:           req.UserID,
 			RequestMessageID: req.ContextBeforeMessageID,
 			TargetLanguage:   req.Settings.TargetLanguage,
 			NativeLanguage:   req.Settings.NativeLanguage,
 			Vocabulary:       s.vocabularyService,
 			State:            turnState,
-		},
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"count": {Type: schema.Integer, Desc: "requested word count"},
+		}), nil),
 	}
 
 	systemPrompt := prompts.ChatSystemPrompt(
@@ -107,17 +134,27 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		profile.Summary,
 	)
 
-	agent := lcagents.NewOpenAIFunctionsAgent(
-		llm,
-		tools,
-		lcagents.NewOpenAIOption().WithSystemMessage(systemPrompt),
-		lcagents.WithMaxIterations(12),
-	)
-	executor := lcagents.NewExecutor(agent, lcagents.WithMaxIterations(12))
-
-	if _, err := chains.Run(ctx, executor, req.UserInput); err != nil {
+	agent, err := react.NewAgent(ctx, &react.AgentConfig{
+		ToolCallingModel: llm,
+		ToolsConfig:      compose.ToolsNodeConfig{Tools: tools},
+		// Eino counts model and tool nodes separately. This permits the same
+		// twelve tool-call iterations as the previous executor, plus its final
+		// model response after the last tool result.
+		MaxStep: maxChatToolIterations*2 + 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := agent.Generate(ctx, []*schema.Message{
+		schema.SystemMessage(systemPrompt),
+		schema.UserMessage(req.UserInput),
+	}); err != nil {
 		return nil, err
 	}
 
 	return turnState.Result(), nil
+}
+
+func objectParams(params map[string]*schema.ParameterInfo) *schema.ParamsOneOf {
+	return schema.NewParamsOneOfByParams(params)
 }

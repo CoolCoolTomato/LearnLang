@@ -1,10 +1,11 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
+	"github.com/cloudwego/eino/components/model"
 )
 
 const (
@@ -12,12 +13,21 @@ const (
 	TypeAnthropic = "anthropic"
 )
 
-func New(apiKey, apiBaseURL, model, llmType string) (llms.Model, error) {
+type Options struct {
+	MaxTokens   int
+	Temperature *float32
+}
+
+func New(ctx context.Context, apiKey, apiBaseURL, modelName, llmType string) (model.ToolCallingChatModel, error) {
+	return NewWithOptions(ctx, apiKey, apiBaseURL, modelName, llmType, Options{})
+}
+
+func NewWithOptions(ctx context.Context, apiKey, apiBaseURL, modelName, llmType string, options Options) (model.ToolCallingChatModel, error) {
 	switch normalizeType(llmType) {
 	case "", TypeOpenAI:
-		return newOpenAI(apiKey, apiBaseURL, model)
+		return newOpenAI(ctx, apiKey, apiBaseURL, modelName, options)
 	case TypeAnthropic:
-		return newClaudeCode(apiKey, apiBaseURL, model)
+		return newClaudeCode(ctx, apiKey, apiBaseURL, modelName, options)
 	default:
 		return nil, fmt.Errorf("unsupported llm type: %s", llmType)
 	}
