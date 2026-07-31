@@ -49,7 +49,16 @@ func TestFormatShortTermMemoryUsesTimezoneAndOmitsEmptyTranslation(t *testing.T)
 
 func TestChatSystemPromptIncludesDefaultsAndData(t *testing.T) {
 	prompt := ChatSystemPrompt("", "", "2026-07-31 10:00", "Asia/Shanghai", nil, "likes Go")
-	for _, expected := range []string{"Native language: zh-CN", "Learning: en-US", "likes Go", "2026-07-31 10:00", "Asia/Shanghai"} {
+	for _, expected := range []string{
+		"User's native language: zh-CN",
+		"Target language: en-US",
+		"likes Go",
+		"2026-07-31 10:00",
+		"Asia/Shanghai",
+		"send_chat_reply exactly once",
+		"complete_chat_turn",
+		"scheduled_at",
+	} {
 		if !strings.Contains(prompt, expected) {
 			t.Errorf("prompt does not contain %q", expected)
 		}
