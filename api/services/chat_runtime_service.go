@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/openai/openai-go/v3"
@@ -334,17 +335,99 @@ func (crs *ChatRuntimeService) GetChatHistory(ctx context.Context, userID int64,
 }
 
 func (crs *ChatRuntimeService) GetShortTermMemory(ctx context.Context, userID, beforeMessageID int64, since time.Time) ([]models.Message, error) {
-	var messages []models.Message
+	var recent []models.Message
 	query := database.DB.WithContext(ctx).
 		Where("user_id = ? AND created_at >= ?", userID, since).
 		Order("created_at ASC, id ASC")
 	if beforeMessageID > 0 {
 		query = query.Where("id < ?", beforeMessageID)
 	}
-	if err := query.Find(&messages).Error; err != nil {
+	if err := query.Find(&recent).Error; err != nil {
 		return nil, err
 	}
+	if len(recent) > 0 {
+		return recent, nil
+	}
+
+	archivedIDsByMessage, err := loadArchivedMessageIDs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	archivedIDs := sortedMessageIDs(archivedIDsByMessage)
+
+	// Keep every unarchived message so the model never loses the tail that has
+	// not yet been summarized into long-term memory. Fill the remaining buffer
+	// with the most recent archived messages when the short-term window is
+	// empty. The target is not a hard cap when the unarchived tail is larger.
+	unarchivedQuery := database.DB.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at ASC, id ASC")
+	if len(archivedIDs) > 0 {
+		unarchivedQuery = unarchivedQuery.Not("id IN ?", archivedIDs)
+	}
+	if beforeMessageID > 0 {
+		unarchivedQuery = unarchivedQuery.Where("id < ?", beforeMessageID)
+	}
+	var unarchived []models.Message
+	if err := unarchivedQuery.Find(&unarchived).Error; err != nil {
+		return nil, err
+	}
+	const fallbackMinimum = 20
+	archivedLimit := fallbackMinimum - len(unarchived)
+	if archivedLimit < 0 {
+		archivedLimit = 0
+	}
+	var archived []models.Message
+	if archivedLimit > 0 && len(archivedIDs) > 0 {
+		archivedQuery := database.DB.WithContext(ctx).
+			Where("user_id = ? AND id IN ?", userID, archivedIDs).
+			Order("created_at DESC, id DESC").
+			Limit(archivedLimit)
+		if beforeMessageID > 0 {
+			archivedQuery = archivedQuery.Where("id < ?", beforeMessageID)
+		}
+		if err := archivedQuery.Find(&archived).Error; err != nil {
+			return nil, err
+		}
+		for i, j := 0, len(archived)-1; i < j; i, j = i+1, j-1 {
+			archived[i], archived[j] = archived[j], archived[i]
+		}
+	}
+
+	messages := append(archived, unarchived...)
+	sort.SliceStable(messages, func(i, j int) bool {
+		if messages[i].CreatedAt.Equal(messages[j].CreatedAt) {
+			return messages[i].ID < messages[j].ID
+		}
+		return messages[i].CreatedAt.Before(messages[j].CreatedAt)
+	})
 	return messages, nil
+}
+
+func loadArchivedMessageIDs(ctx context.Context, userID int64) (map[int64]struct{}, error) {
+	var archives []models.ConversationArchive
+	if err := database.DB.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Find(&archives).Error; err != nil {
+		return nil, err
+	}
+
+	messageIDs := make(map[int64]struct{})
+	for _, archive := range archives {
+		for _, messageID := range archive.MessageIDs {
+			messageIDs[messageID] = struct{}{}
+		}
+	}
+	return messageIDs, nil
+}
+
+func sortedMessageIDs(values map[int64]struct{}) []int64 {
+	keys := make([]int64, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }
 
 func (crs *ChatRuntimeService) UserSettings(userID int64) (*models.UserSettings, error) {

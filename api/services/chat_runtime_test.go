@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"net/http"
@@ -26,7 +27,7 @@ func (h *fakeWSHub) SendToUser(userID int64, message []byte) {
 
 func setupChatRuntimeTest(t *testing.T, apiBaseURL string) (*ChatRuntimeService, *fakeWSHub) {
 	t.Helper()
-	setupServiceTestDB(t)
+	setupServiceTestDB(t, &models.ConversationArchive{})
 	settings := models.UserSettings{
 		UserID: 1, NativeLanguage: "zh-CN", TargetLanguage: "en-US", Timezone: "Asia/Shanghai",
 		STTAPIKey: "key", STTAPIBaseURL: apiBaseURL, STTModel: "whisper-test",
@@ -96,6 +97,170 @@ func TestChatRuntimeMessageAndTaskOperations(t *testing.T) {
 	cancel()
 	if _, err := runtime.ScheduleMessage(canceled, 1, "x", "y", time.Now()); err != context.Canceled {
 		t.Fatalf("canceled ScheduleMessage() error = %v", err)
+	}
+}
+
+func TestGetShortTermMemoryFallsBackToLatestHistoryAfterWindow(t *testing.T) {
+	runtime, _ := setupChatRuntimeTest(t, "http://127.0.0.1:1")
+	now := time.Now().UTC()
+	oldMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "old context",
+		CreatedAt:   now.Add(-48 * time.Hour),
+	}
+	currentMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "current input",
+		CreatedAt:   now,
+	}
+	if err := database.DB.Create(&oldMessage).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.DB.Create(&currentMessage).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := runtime.GetShortTermMemory(context.Background(), 1, currentMessage.ID, now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != oldMessage.ID {
+		t.Fatalf("fallback short-term memory = %#v, want latest preceding message", got)
+	}
+}
+
+func TestGetShortTermMemoryPrefersRecentWindow(t *testing.T) {
+	runtime, _ := setupChatRuntimeTest(t, "http://127.0.0.1:1")
+	now := time.Now().UTC()
+	oldMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "old context",
+		CreatedAt:   now.Add(-48 * time.Hour),
+	}
+	recentMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "recent context",
+		CreatedAt:   now.Add(-time.Hour),
+	}
+	currentMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "current input",
+		CreatedAt:   now,
+	}
+	for _, message := range []*models.Message{&oldMessage, &recentMessage, &currentMessage} {
+		if err := database.DB.Create(message).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := runtime.GetShortTermMemory(context.Background(), 1, currentMessage.ID, now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != recentMessage.ID {
+		t.Fatalf("recent short-term memory = %#v, want only recent window", got)
+	}
+}
+
+func TestGetShortTermMemoryFallbackIncludesAllUnarchivedMessages(t *testing.T) {
+	runtime, _ := setupChatRuntimeTest(t, "http://127.0.0.1:1")
+	now := time.Now().UTC()
+	for i := 0; i < 21; i++ {
+		message := models.Message{
+			UserID:      1,
+			Role:        "user",
+			TextContent: fmt.Sprintf("old context %d", i),
+			CreatedAt:   now.Add(-time.Duration(48-i) * time.Hour),
+		}
+		if err := database.DB.Create(&message).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	currentMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "current input",
+		CreatedAt:   now,
+	}
+	if err := database.DB.Create(&currentMessage).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := runtime.GetShortTermMemory(context.Background(), 1, currentMessage.ID, now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 21 {
+		t.Fatalf("fallback length = %d, want all 21 unarchived messages", len(got))
+	}
+	if got[0].TextContent != "old context 0" || got[len(got)-1].TextContent != "old context 20" {
+		t.Fatalf("fallback order = %q ... %q, want chronological order", got[0].TextContent, got[len(got)-1].TextContent)
+	}
+}
+
+func TestGetShortTermMemoryFallbackIncludesUnarchivedAndFillsArchived(t *testing.T) {
+	runtime, _ := setupChatRuntimeTest(t, "http://127.0.0.1:1")
+	now := time.Now().UTC()
+	messages := make([]models.Message, 25)
+	messageIDs := make([]int64, 10)
+	for i := range messages {
+		messages[i] = models.Message{
+			UserID:      1,
+			Role:        "user",
+			TextContent: fmt.Sprintf("history %02d", i),
+			CreatedAt:   now.Add(-time.Duration(50-i) * time.Hour),
+		}
+		if err := database.DB.Create(&messages[i]).Error; err != nil {
+			t.Fatal(err)
+		}
+		if i < len(messageIDs) {
+			messageIDs[i] = messages[i].ID
+		}
+	}
+	if err := database.DB.Create(&models.ConversationArchive{
+		UserID:       1,
+		MessageIDs:   messageIDs,
+		Summary:      "archived history",
+		MessageCount: len(messageIDs),
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	currentMessage := models.Message{
+		UserID:      1,
+		Role:        "user",
+		TextContent: "current input",
+		CreatedAt:   now,
+	}
+	if err := database.DB.Create(&currentMessage).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := runtime.GetShortTermMemory(context.Background(), 1, currentMessage.ID, now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 20 {
+		t.Fatalf("fallback length = %d, want 20", len(got))
+	}
+	if got[0].TextContent != "history 05" || got[len(got)-1].TextContent != "history 24" {
+		t.Fatalf("fallback range = %q ... %q, want five archived plus all unarchived", got[0].TextContent, got[len(got)-1].TextContent)
+	}
+	for i := 10; i < len(messages); i++ {
+		found := false
+		for _, message := range got {
+			if message.ID == messages[i].ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("unarchived message %d was omitted", i)
+		}
 	}
 }
 

@@ -55,6 +55,7 @@ func TestChatSystemPromptIncludesDefaultsAndData(t *testing.T) {
 		"likes Go",
 		"2026-07-31 10:00",
 		"Asia/Shanghai",
+		"application-selected conversation context",
 		"send_chat_reply exactly once",
 		"complete_chat_turn",
 		"scheduled_at",
