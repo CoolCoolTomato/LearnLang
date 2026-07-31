@@ -3,6 +3,7 @@ module learnlang-api
 go 1.25.8
 
 require (
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/cloudwego/eino v0.9.13
 	github.com/cloudwego/eino-ext/components/model/claude v0.1.24
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
@@ -18,6 +19,7 @@ require (
 	golang.org/x/crypto v0.53.0
 	golang.org/x/text v0.38.0
 	gorm.io/driver/postgres v1.6.0
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 )
 
@@ -108,6 +110,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/meguminnnnnnnnn/go-openai v0.1.2 // indirect
 	github.com/milvus-io/milvus-proto/go-api/v2 v2.6.17 // indirect
 	github.com/milvus-io/milvus/pkg/v2 v2.6.7-0.20251201120310-af64f2acba38 // indirect
@@ -159,6 +162,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.3.11 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.5 // indirect

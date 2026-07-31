@@ -104,7 +104,7 @@ func (s *VocabularyService) Create(ctx context.Context, userID int64, input Voca
 
 	var vocabulary models.Vocabulary
 	err = database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockUserVocabulary(tx, userID); err != nil {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
 			return err
 		}
 		if err := ensureVocabularyNameAvailable(tx, userID, name, 0); err != nil {
@@ -140,7 +140,7 @@ func (s *VocabularyService) Create(ctx context.Context, userID int64, input Voca
 func (s *VocabularyService) Update(ctx context.Context, userID, vocabularyID int64, input VocabularyUpdateInput) (*models.Vocabulary, error) {
 	var vocabulary *models.Vocabulary
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockUserVocabulary(tx, userID); err != nil {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
 			return err
 		}
 		current, err := findOwnedVocabulary(tx, userID, vocabularyID)
@@ -221,7 +221,7 @@ func (s *VocabularyService) Update(ctx context.Context, userID, vocabularyID int
 
 func (s *VocabularyService) Delete(ctx context.Context, userID, vocabularyID int64) error {
 	return database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockUserVocabulary(tx, userID); err != nil {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
 			return err
 		}
 		vocabulary, err := findOwnedVocabulary(tx, userID, vocabularyID)
@@ -252,7 +252,7 @@ func (s *VocabularyService) Import(ctx context.Context, userID, vocabularyID int
 
 	result := &VocabularyImportResult{}
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockUserVocabulary(tx, userID); err != nil {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
 			return err
 		}
 		vocabulary, err := findOwnedVocabulary(tx, userID, vocabularyID)
@@ -284,7 +284,7 @@ func (s *VocabularyService) Import(ctx context.Context, userID, vocabularyID int
 func (s *VocabularyService) Clear(ctx context.Context, userID, vocabularyID int64) (int64, error) {
 	var deleted int64
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockUserVocabulary(tx, userID); err != nil {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
 			return err
 		}
 
@@ -773,3 +773,5 @@ func exampleKey(targetText, nativeText string) string {
 func lockUserVocabulary(tx *gorm.DB, userID int64) error {
 	return tx.Exec("SELECT pg_advisory_xact_lock(?)", vocabularyAdvisoryLockBase+userID).Error
 }
+
+var acquireVocabularyUserLock = lockUserVocabulary
