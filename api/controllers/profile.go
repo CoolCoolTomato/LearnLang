@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"learnlang-api/models"
 	"learnlang-api/services"
 	"learnlang-api/utils"
 	"log"
@@ -251,7 +252,12 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 		updates["model"] = req.Model
 	}
 	if req.LLMType != "" {
-		updates["llm_type"] = req.LLMType
+		llmType, valid := models.NormalizeLLMType(req.LLMType)
+		if !valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "LLM type must be openai or anthropic"})
+			return
+		}
+		updates["llm_type"] = llmType
 	}
 	if req.EmbeddingAPIBaseURL != "" {
 		updates["embedding_api_base_url"] = req.EmbeddingAPIBaseURL

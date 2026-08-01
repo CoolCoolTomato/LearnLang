@@ -140,6 +140,17 @@ func TestUpdateSettingsRequiresEmbeddingDimension(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsRejectsInvalidLLMType(t *testing.T) {
+	context, recorder := controllerContext(http.MethodPut, "/", `{"llm_type":"claude"}`)
+	context.Set("user_id", int64(1))
+
+	NewProfileController(nil, nil).UpdateMySettings(context)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "LLM type") {
+		t.Fatalf("invalid LLM type = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAvatarValidationPaths(t *testing.T) {
 	controller := NewProfileController(nil, nil)
 	for _, filename := range []string{"", "../secret", "a..b"} {

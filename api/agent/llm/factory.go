@@ -3,14 +3,15 @@ package llm
 import (
 	"context"
 	"fmt"
+	"learnlang-api/models"
 	"strings"
 
 	"github.com/cloudwego/eino/components/model"
 )
 
 const (
-	TypeOpenAI    = "openai"
-	TypeAnthropic = "anthropic"
+	TypeOpenAI    = models.LLMTypeOpenAI
+	TypeAnthropic = models.LLMTypeAnthropic
 )
 
 type Options struct {

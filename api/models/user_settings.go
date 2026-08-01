@@ -1,8 +1,25 @@
 package models
 
 import (
+	"strings"
 	"time"
 )
+
+const (
+	LLMTypeOpenAI    = "openai"
+	LLMTypeAnthropic = "anthropic"
+)
+
+func NormalizeLLMType(value string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", LLMTypeOpenAI:
+		return LLMTypeOpenAI, true
+	case LLMTypeAnthropic:
+		return LLMTypeAnthropic, true
+	default:
+		return "", false
+	}
+}
 
 type UserSettings struct {
 	ID                  int64     `gorm:"primaryKey;autoIncrement" json:"id"`

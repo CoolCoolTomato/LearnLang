@@ -22,6 +22,7 @@ interface ProviderModelSectionProps {
   onApiKeyChange: (value: string) => void
   onModelChange: (value: string) => void
   onLoadModels: () => void
+  manualModelEntry?: boolean
 
   extra?: React.ReactNode
 }
@@ -39,6 +40,7 @@ export function ProviderModelSection({
   onApiKeyChange,
   onModelChange,
   onLoadModels,
+  manualModelEntry = false,
   extra,
 }: ProviderModelSectionProps) {
   const { t } = useTranslation()
@@ -68,33 +70,44 @@ export function ProviderModelSection({
       </div>
 
       {canPickModel ? (
-        <Field label={modelLabel}>
-          <div className="flex flex-col gap-2 md:flex-row">
-            <ModelCombobox
+        manualModelEntry ? (
+          <Field label={modelLabel}>
+            <Input
               value={model}
-              onValueChange={onModelChange}
-              models={models}
-              placeholder={
-                models.length === 0
-                  ? t("systemSettings.noModels")
-                  : t("settings.selectModel")
-              }
-              disabled={loadingModels || models.length === 0}
-              className="flex-1 h-11"
+              onChange={(event) => onModelChange(event.target.value)}
+              placeholder={t("settings.enterModel")}
+              className="h-11 rounded-xl"
             />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onLoadModels}
-              disabled={loadingModels}
-              className="h-11 rounded-xl px-4"
-            >
-              {loadingModels
-                ? t("systemSettings.loadingModels")
-                : t("systemSettings.loadModels")}
-            </Button>
-          </div>
-        </Field>
+          </Field>
+        ) : (
+          <Field label={modelLabel}>
+            <div className="flex flex-col gap-2 md:flex-row">
+              <ModelCombobox
+                value={model}
+                onValueChange={onModelChange}
+                models={models}
+                placeholder={
+                  models.length === 0
+                    ? t("systemSettings.noModels")
+                    : t("settings.selectModel")
+                }
+                disabled={loadingModels || models.length === 0}
+                className="h-11 flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onLoadModels}
+                disabled={loadingModels}
+                className="h-11 rounded-xl px-4"
+              >
+                {loadingModels
+                  ? t("systemSettings.loadingModels")
+                  : t("systemSettings.loadModels")}
+              </Button>
+            </div>
+          </Field>
+        )
       ) : null}
 
       {extra}

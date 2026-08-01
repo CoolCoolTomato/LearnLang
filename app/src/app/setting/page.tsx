@@ -9,12 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -27,7 +22,13 @@ import {
   SettingsIcon,
 } from "lucide-react"
 
-import type { Settings, ProviderType, Language, UpdateSettingsRequest } from "@/types/settings"
+import type {
+  Settings,
+  ProviderType,
+  LLMType,
+  Language,
+  UpdateSettingsRequest,
+} from "@/types/settings"
 import type { Model } from "@/types/model"
 
 import { getCustomProviderModels } from "@/api/model-provider"
@@ -52,14 +53,14 @@ export default function Page() {
     (i18n.resolvedLanguage || "en-US") as Language
   )
 
-
   const [models, setModels] = React.useState<Model[]>([])
   const [embeddingModels, setEmbeddingModels] = React.useState<Model[]>([])
   const [sttModels, setSttModels] = React.useState<Model[]>([])
   const [ttsModels, setTtsModels] = React.useState<Model[]>([])
 
   const [loadingModels, setLoadingModels] = React.useState(false)
-  const [loadingEmbeddingModels, setLoadingEmbeddingModels] = React.useState(false)
+  const [loadingEmbeddingModels, setLoadingEmbeddingModels] =
+    React.useState(false)
   const [loadingSttModels, setLoadingSttModels] = React.useState(false)
   const [loadingTtsModels, setLoadingTtsModels] = React.useState(false)
 
@@ -67,6 +68,7 @@ export default function Page() {
     api_base_url: "",
     api_key: "",
     model: "",
+    llm_type: "openai" as LLMType,
 
     embedding_api_base_url: "",
     embedding_api_key: "",
@@ -137,9 +139,7 @@ export default function Page() {
     try {
       setLoading(true)
 
-      const [settingsData] = await Promise.all([
-        getSettings(),
-      ])
+      const [settingsData] = await Promise.all([getSettings()])
 
       const s = settingsData as Settings
 
@@ -147,11 +147,14 @@ export default function Page() {
         api_base_url: s.api_base_url || "",
         api_key: s.api_key || "",
         model: s.model || "",
+        llm_type: s.llm_type === "anthropic" ? "anthropic" : "openai",
 
         embedding_api_base_url: s.embedding_api_base_url || "",
         embedding_api_key: s.embedding_api_key || "",
         embedding_model: s.embedding_model || "",
-        embedding_dimension: s.embedding_dimension ? String(s.embedding_dimension) : "",
+        embedding_dimension: s.embedding_dimension
+          ? String(s.embedding_dimension)
+          : "",
 
         stt_api_base_url: s.stt_api_base_url || "",
         stt_api_key: s.stt_api_key || "",
@@ -191,7 +194,10 @@ export default function Page() {
         settingsFormData.embedding_api_key ||
         settingsFormData.embedding_model
       )
-      if (hasEmbeddingConfig && (!Number.isInteger(embeddingDimension) || embeddingDimension <= 0)) {
+      if (
+        hasEmbeddingConfig &&
+        (!Number.isInteger(embeddingDimension) || embeddingDimension <= 0)
+      ) {
         toast.error(t("settings.embeddingDimensionRequired"))
         return
       }
@@ -199,10 +205,13 @@ export default function Page() {
         api_base_url: settingsFormData.api_base_url || undefined,
         api_key: settingsFormData.api_key || undefined,
         model: settingsFormData.model || undefined,
-        embedding_api_base_url: settingsFormData.embedding_api_base_url || undefined,
+        llm_type: settingsFormData.llm_type,
+        embedding_api_base_url:
+          settingsFormData.embedding_api_base_url || undefined,
         embedding_api_key: settingsFormData.embedding_api_key || undefined,
         embedding_model: settingsFormData.embedding_model || undefined,
-        embedding_dimension: embeddingDimension > 0 ? embeddingDimension : undefined,
+        embedding_dimension:
+          embeddingDimension > 0 ? embeddingDimension : undefined,
         stt_api_base_url: settingsFormData.stt_api_base_url || undefined,
         stt_api_key: settingsFormData.stt_api_key || undefined,
         stt_model: settingsFormData.stt_model || undefined,
@@ -226,7 +235,9 @@ export default function Page() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+        <div className="text-sm text-muted-foreground">
+          {t("common.loading")}
+        </div>
       </div>
     )
   }
@@ -243,7 +254,11 @@ export default function Page() {
     <div className="relative min-h-full bg-background">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
         <div className="rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm backdrop-blur">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-muted/40">
@@ -287,18 +302,8 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="bg-muted/50 w-full h-13 flex items-center justify-center rounded-3xl p-2 mt-8">
-              <TabsList
-                className="
-                  justify-start!
-                  flex w-full items-center gap-2
-                  group-data-horizontal/tabs:h-10
-                  overflow-x-auto overflow-y-hidden
-                  whitespace-nowrap
-                  bg-transparent p-0.5
-                  rounded-none
-                "
-              >
+            <div className="mt-8 flex h-13 w-full items-center justify-center rounded-3xl bg-muted/50 p-2">
+              <TabsList className="flex w-full items-center justify-start! gap-2 overflow-x-auto overflow-y-hidden rounded-none bg-transparent p-0.5 whitespace-nowrap group-data-horizontal/tabs:h-10">
                 <TabsTrigger
                   value="general"
                   className="shrink-0 rounded-xl px-4"
@@ -307,10 +312,7 @@ export default function Page() {
                   {t("settings.generalTitle", "General")}
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="chat"
-                  className="shrink-0 rounded-xl px-4"
-                >
+                <TabsTrigger value="chat" className="shrink-0 rounded-xl px-4">
                   <Bot className="mr-2 h-4 w-4" />
                   Chat
                 </TabsTrigger>
@@ -323,18 +325,12 @@ export default function Page() {
                   Embedding
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="stt"
-                  className="shrink-0 rounded-xl px-4"
-                >
+                <TabsTrigger value="stt" className="shrink-0 rounded-xl px-4">
                   <Mic className="mr-2 h-4 w-4" />
                   STT
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="tts"
-                  className="shrink-0 rounded-xl px-4"
-                >
+                <TabsTrigger value="tts" className="shrink-0 rounded-xl px-4">
                   <Volume2 className="mr-2 h-4 w-4" />
                   TTS
                 </TabsTrigger>
@@ -363,13 +359,17 @@ export default function Page() {
                   <Field label={t("settings.nativeLanguage")}>
                     <Select
                       value={settingsFormData.native_language}
-                      onValueChange={(value: ProviderType) => patchForm({ native_language: value })}
+                      onValueChange={(value: ProviderType) =>
+                        patchForm({ native_language: value })
+                      }
                     >
                       <SelectTrigger className="h-12">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">{t("settings.noProvider")}</SelectItem>
+                        <SelectItem value="0">
+                          {t("settings.noProvider")}
+                        </SelectItem>
                         {languageList.map((language) => (
                           <SelectItem key={language} value={language}>
                             {language}
@@ -381,13 +381,17 @@ export default function Page() {
                   <Field label={t("settings.targetLanguage")}>
                     <Select
                       value={settingsFormData.target_language}
-                      onValueChange={(value: ProviderType) => patchForm({ target_language: value })}
+                      onValueChange={(value: ProviderType) =>
+                        patchForm({ target_language: value })
+                      }
                     >
                       <SelectTrigger className="h-12">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">{t("settings.noProvider")}</SelectItem>
+                        <SelectItem value="0">
+                          {t("settings.noProvider")}
+                        </SelectItem>
                         {languageList.map((language) => (
                           <SelectItem key={language} value={language}>
                             {language}
@@ -408,6 +412,29 @@ export default function Page() {
                   "Used for the main conversation and AI replies."
                 )}
               >
+                <Field
+                  label={t("settings.llmType")}
+                  description={t("settings.llmTypeDescription")}
+                >
+                  <Select
+                    value={settingsFormData.llm_type}
+                    onValueChange={(value: LLMType) =>
+                      patchForm({ llm_type: value })
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">
+                        {t("settings.llmTypeOpenAI")}
+                      </SelectItem>
+                      <SelectItem value="anthropic">
+                        {t("settings.llmTypeAnthropic")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
                 <ProviderModelSection
                   apiBaseUrl={settingsFormData.api_base_url}
                   apiKey={settingsFormData.api_key}
@@ -426,6 +453,7 @@ export default function Page() {
                     setModels([])
                   }}
                   onModelChange={(value) => patchForm({ model: value })}
+                  manualModelEntry={settingsFormData.llm_type === "anthropic"}
                   onLoadModels={() => {
                     if (
                       settingsFormData.api_base_url &&
@@ -461,14 +489,19 @@ export default function Page() {
                   apiKeyLabel={t("settings.embeddingApiKey")}
                   modelLabel={t("settings.embeddingModel")}
                   onApiBaseUrlChange={(value) => {
-                    patchForm({ embedding_api_base_url: value, embedding_model: "" })
+                    patchForm({
+                      embedding_api_base_url: value,
+                      embedding_model: "",
+                    })
                     setEmbeddingModels([])
                   }}
                   onApiKeyChange={(value) => {
                     patchForm({ embedding_api_key: value, embedding_model: "" })
                     setEmbeddingModels([])
                   }}
-                  onModelChange={(value) => patchForm({ embedding_model: value })}
+                  onModelChange={(value) =>
+                    patchForm({ embedding_model: value })
+                  }
                   onLoadModels={() => {
                     if (
                       settingsFormData.embedding_api_base_url &&
@@ -496,7 +529,9 @@ export default function Page() {
                         inputMode="numeric"
                         required
                         value={settingsFormData.embedding_dimension}
-                        onChange={(event) => patchForm({ embedding_dimension: event.target.value })}
+                        onChange={(event) =>
+                          patchForm({ embedding_dimension: event.target.value })
+                        }
                         className="h-11 rounded-xl"
                       />
                     </Field>
@@ -588,12 +623,14 @@ export default function Page() {
                     }
                   }}
                   extra={
-                    (settingsFormData.tts_api_base_url &&
-                        settingsFormData.tts_api_key) && (
+                    settingsFormData.tts_api_base_url &&
+                    settingsFormData.tts_api_key && (
                       <Field label={t("settings.ttsVoice")}>
                         <Input
                           value={settingsFormData.tts_voice}
-                          onChange={(e) => patchForm({ tts_voice: e.target.value })}
+                          onChange={(e) =>
+                            patchForm({ tts_voice: e.target.value })
+                          }
                           placeholder={t("settings.ttsVoicePlaceholder")}
                           className="h-11 rounded-xl"
                         />

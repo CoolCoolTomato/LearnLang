@@ -45,7 +45,8 @@ func InitUser(cfg *config.Config) error {
 	}
 
 	settings := models.UserSettings{
-		UserID: admin.ID,
+		UserID:  admin.ID,
+		LLMType: models.LLMTypeOpenAI,
 	}
 
 	if err := DB.Create(&settings).Error; err != nil {

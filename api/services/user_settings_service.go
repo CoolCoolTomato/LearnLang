@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"learnlang-api/database"
 	"learnlang-api/models"
 
@@ -10,13 +11,16 @@ import (
 
 type UserSettingsService struct{}
 
+var ErrInvalidLLMType = errors.New("invalid LLM type")
+
 func NewUserSettingsService() *UserSettingsService {
 	return &UserSettingsService{}
 }
 
 func (uss *UserSettingsService) CreateUserSettings(userID int64) error {
 	settings := models.UserSettings{
-		UserID: userID,
+		UserID:  userID,
+		LLMType: models.LLMTypeOpenAI,
 	}
 	return database.DB.Create(&settings).Error
 }
@@ -33,6 +37,16 @@ func (uss *UserSettingsService) GetUserSettings(userID int64) (*models.UserSetti
 		}
 	} else if err != nil {
 		return nil, err
+	}
+	normalizedType, valid := models.NormalizeLLMType(settings.LLMType)
+	if !valid {
+		normalizedType = models.LLMTypeOpenAI
+	}
+	if settings.LLMType != normalizedType {
+		if err := database.DB.Model(&settings).Update("llm_type", normalizedType).Error; err != nil {
+			return nil, err
+		}
+		settings.LLMType = normalizedType
 	}
 	return &settings, nil
 }
@@ -58,8 +72,12 @@ func (uss *UserSettingsService) UpdateUserSettings(userID int64, updates map[str
 				settings.Model = v
 			}
 		case "llm_type":
-			if v, ok := value.(string); ok && v != "" {
-				settings.LLMType = v
+			if v, ok := value.(string); ok {
+				normalized, valid := models.NormalizeLLMType(v)
+				if !valid {
+					return nil, fmt.Errorf("%w: %q", ErrInvalidLLMType, v)
+				}
+				settings.LLMType = normalized
 			}
 		case "embedding_api_base_url":
 			if v, ok := value.(string); ok && v != "" {

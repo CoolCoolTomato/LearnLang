@@ -133,8 +133,11 @@ func TestUserSettingsService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.APIKey != "secret" || updated.EmbeddingModel != "embed-model" || updated.EmbeddingDimension != 1024 || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.Timezone != "Asia/Shanghai" {
+	if updated.APIKey != "secret" || updated.LLMType != models.LLMTypeAnthropic || updated.EmbeddingModel != "embed-model" || updated.EmbeddingDimension != 1024 || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.Timezone != "Asia/Shanghai" {
 		t.Fatalf("updated settings = %#v", updated)
+	}
+	if _, err := service.UpdateUserSettings(22, map[string]interface{}{"llm_type": "claude"}); !errors.Is(err, ErrInvalidLLMType) {
+		t.Fatalf("invalid LLM type error = %v", err)
 	}
 	if _, err := service.UpdateUserSettings(999, map[string]interface{}{"model": "x"}); err == nil {
 		t.Fatal("UpdateUserSettings() updated a missing row")

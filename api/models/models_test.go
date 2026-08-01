@@ -2,6 +2,24 @@ package models
 
 import "testing"
 
+func TestNormalizeLLMType(t *testing.T) {
+	for _, test := range []struct {
+		input string
+		want  string
+		valid bool
+	}{
+		{"", LLMTypeOpenAI, true},
+		{" OpenAI ", LLMTypeOpenAI, true},
+		{"ANTHROPIC", LLMTypeAnthropic, true},
+		{"claude", "", false},
+	} {
+		got, valid := NormalizeLLMType(test.input)
+		if got != test.want || valid != test.valid {
+			t.Errorf("NormalizeLLMType(%q) = %q, %t; want %q, %t", test.input, got, valid, test.want, test.valid)
+		}
+	}
+}
+
 func TestModelTableNames(t *testing.T) {
 	tests := map[string]string{
 		(User{}).TableName():                     "users",
