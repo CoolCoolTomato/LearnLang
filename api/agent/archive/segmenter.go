@@ -8,7 +8,6 @@ import (
 	"learnlang-api/services"
 	"strings"
 
-	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	agenttools "learnlang-api/agent/tools"
 )
@@ -52,28 +51,35 @@ func (llmSegmenter) Generate(ctx context.Context, settings *models.UserSettings,
 	for attempt := 0; attempt < archiveBatchPlanAttempts; attempt++ {
 		planInput := input
 		if lastObservation != "" {
-			planInput += "\nThe previous tool call was rejected. Correct the input using this observation:\n" + lastObservation
+			planInput += "\nThe previous attempt did not produce an accepted archive tool call. Correct it using this observation:\n" + lastObservation
 		}
 		response, err := modelWithTools.Generate(ctx, []*schema.Message{
 			schema.SystemMessage(archiveSystemPrompt()),
 			schema.UserMessage(planInput),
-		}, model.WithToolChoice(schema.ToolChoiceForced))
+		})
 		if err != nil {
 			return nil, err
 		}
-		if len(response.ToolCalls) == 0 {
-			return nil, fmt.Errorf("archive agent did not call archive_conversation_range")
+		if response == nil || len(response.ToolCalls) == 0 {
+			lastObservation = `{"status":"rejected","error":"call archive_conversation_range instead of returning plain text"}`
+			continue
 		}
 
+		matchedTool := false
 		for _, action := range response.ToolCalls {
 			if !strings.EqualFold(action.Function.Name, rangeTool.Name()) {
 				continue
 			}
+			matchedTool = true
 			observation, err := einoTool.InvokableRun(ctx, action.Function.Arguments)
 			if err != nil {
 				return nil, err
 			}
 			lastObservation = observation
+		}
+		if !matchedTool {
+			lastObservation = `{"status":"rejected","error":"only archive_conversation_range is available"}`
+			continue
 		}
 
 		segments := state.Result()
