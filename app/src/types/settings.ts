@@ -13,6 +13,7 @@ export interface Settings {
   embedding_api_base_url?: string
   embedding_api_key?: string
   embedding_model?: string
+  embedding_dimension?: number
   stt_api_base_url?: string
   stt_api_key?: string
   stt_model?: string
@@ -34,6 +35,7 @@ export interface UpdateSettingsRequest {
   embedding_api_base_url?: string
   embedding_api_key?: string
   embedding_model?: string
+  embedding_dimension?: number
   stt_api_base_url?: string
   stt_api_key?: string
   stt_model?: string

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"learnlang-api/utils"
+	"log"
 	"net/http"
 	"strings"
 
@@ -39,6 +40,7 @@ func WebSocketAuthMiddleware(secret string, tokenManager *utils.TokenManager) gi
 
 		valid, err := tokenManager.ValidateToken(claims.UserID, token)
 		if err != nil {
+			log.Printf("websocket token validation failed for user %d: %v", claims.UserID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Token validation failed"})
 			c.Abort()
 			return

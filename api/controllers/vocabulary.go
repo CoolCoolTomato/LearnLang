@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"learnlang-api/services"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -156,6 +157,7 @@ func (vc *VocabularyController) ClearEntries(c *gin.Context) {
 }
 
 func (vc *VocabularyController) writeError(c *gin.Context, err error) {
+	log.Printf("vocabulary request failed: %v", err)
 	switch {
 	case errors.Is(err, services.ErrVocabularyNotFound),
 		errors.Is(err, services.ErrVocabularyMessageNotFound):

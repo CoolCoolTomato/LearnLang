@@ -14,7 +14,9 @@ func InitUser(cfg *config.Config) error {
 	}
 
 	var count int64
-	DB.Model(&models.User{}).Count(&count)
+	if err := DB.Model(&models.User{}).Count(&count).Error; err != nil {
+		return err
+	}
 
 	if count > 0 {
 		log.Println("Users already exist, skipping user initialization")

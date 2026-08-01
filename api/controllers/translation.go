@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"learnlang-api/services"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -43,6 +44,7 @@ func (tc *TranslationController) Translate(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		log.Printf("failed to translate text for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to translate text"})
 		return
 	}

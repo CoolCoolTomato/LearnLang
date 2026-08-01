@@ -129,6 +129,17 @@ func TestAuthenticatedControllerBadRequests(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsRequiresEmbeddingDimension(t *testing.T) {
+	context, recorder := controllerContext(http.MethodPut, "/", `{"embedding_model":"text-embedding"}`)
+	context.Set("user_id", int64(1))
+
+	NewProfileController(nil, nil).UpdateMySettings(context)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "Embedding dimension") {
+		t.Fatalf("missing embedding dimension = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAvatarValidationPaths(t *testing.T) {
 	controller := NewProfileController(nil, nil)
 	for _, filename := range []string{"", "../secret", "a..b"} {

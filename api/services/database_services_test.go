@@ -124,7 +124,7 @@ func TestUserSettingsService(t *testing.T) {
 	updated, err := service.UpdateUserSettings(22, map[string]interface{}{
 		"api_base_url": "https://api.example", "api_key": "secret", "model": "model",
 		"llm_type": "anthropic", "embedding_api_base_url": "https://embed.example",
-		"embedding_api_key": "embed-key", "embedding_model": "embed-model",
+		"embedding_api_key": "embed-key", "embedding_model": "embed-model", "embedding_dimension": 1024,
 		"stt_api_base_url": "https://stt.example", "stt_api_key": "stt-key", "stt_model": "stt-model",
 		"tts_api_base_url": "https://tts.example", "tts_api_key": "tts-key", "tts_model": "tts-model", "tts_voice": "voice",
 		"native_language": "zh-CN", "target_language": "en-US", "timezone": "Asia/Shanghai",
@@ -133,7 +133,7 @@ func TestUserSettingsService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.APIKey != "secret" || updated.EmbeddingModel != "embed-model" || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.Timezone != "Asia/Shanghai" {
+	if updated.APIKey != "secret" || updated.EmbeddingModel != "embed-model" || updated.EmbeddingDimension != 1024 || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.Timezone != "Asia/Shanghai" {
 		t.Fatalf("updated settings = %#v", updated)
 	}
 	if _, err := service.UpdateUserSettings(999, map[string]interface{}{"model": "x"}); err == nil {

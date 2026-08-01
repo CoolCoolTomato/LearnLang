@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"learnlang-api/websocket"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,7 @@ func (wsc *WebSocketController) HandleWebSocket(c *gin.Context) {
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("websocket upgrade failed: %v", err)
 		return
 	}
 

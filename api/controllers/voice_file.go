@@ -27,6 +27,7 @@ func (vfc *VoiceFileController) GetVoiceFileContent(c *gin.Context) {
 
 	voiceFile, err := vfc.voiceFileService.GetVoiceFile(id)
 	if err != nil {
+		log.Printf("failed to fetch voice file %d: %v", id, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Voice file not found"})
 		return
 	}
@@ -34,6 +35,7 @@ func (vfc *VoiceFileController) GetVoiceFileContent(c *gin.Context) {
 	if strings.HasPrefix(voiceFile.VoiceURL, "http://") || strings.HasPrefix(voiceFile.VoiceURL, "https://") {
 		resp, err := http.Get(voiceFile.VoiceURL)
 		if err != nil {
+			log.Printf("failed to fetch remote voice file %d: %v", id, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch remote file"})
 			return
 		}

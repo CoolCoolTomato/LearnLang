@@ -162,6 +162,7 @@ func (cc *Controller) id(c *gin.Context) (int64, bool) {
 }
 
 func (cc *Controller) writeError(c *gin.Context, err error) {
+	log.Printf("developer API request failed: %v", err)
 	status := http.StatusInternalServerError
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		status = http.StatusNotFound

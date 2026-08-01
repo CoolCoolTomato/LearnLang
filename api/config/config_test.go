@@ -30,7 +30,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Redis.Host != "localhost" || cfg.Redis.Port != "6379" || cfg.Redis.DB != 0 {
 		t.Fatalf("redis defaults = %#v", cfg.Redis)
 	}
-	if cfg.Milvus.Collection != "user_memory_summaries" || cfg.Milvus.Dimension != 1536 {
+	if cfg.Milvus.Collection != "user_memory_summaries" {
 		t.Fatalf("milvus defaults = %#v", cfg.Milvus)
 	}
 }

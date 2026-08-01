@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"learnlang-api/agent/embedding"
 	"learnlang-api/agent/memory"
 	"learnlang-api/database"
@@ -17,6 +18,7 @@ type LongTermMemorySearchTool struct {
 	APIKey      string
 	APIBaseURL  string
 	Model       string
+	Dimension   int
 	FallbackKey string
 	FallbackURL string
 }
@@ -36,10 +38,20 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 	}
 
 	if t.Store == nil {
+		log.Printf("long-term memory search is not configured for user %d: memory store is not configured", t.UserID)
 		return marshalToolResult(map[string]any{
 			"query":    input,
 			"memories": []any{},
 			"error":    "memory store is not configured",
+		})
+	}
+	if t.Dimension <= 0 {
+		err := fmt.Errorf("embedding dimension is required")
+		log.Printf("long-term memory search is not configured for user %d: %v", t.UserID, err)
+		return marshalToolResult(map[string]any{
+			"query":    input,
+			"memories": []any{},
+			"error":    err.Error(),
 		})
 	}
 
@@ -54,6 +66,7 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 
 	embedding, err := t.createEmbedding(ctx, input)
 	if err != nil {
+		log.Printf("long-term memory query embedding failed for user %d: %v", t.UserID, err)
 		return marshalToolResult(map[string]any{
 			"query":    input,
 			"memories": []memoryResult{},
@@ -61,8 +74,9 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 		})
 	}
 
-	memories, err := t.Store.Search(ctx, t.UserID, embedding, limit*4)
+	memories, err := t.Store.Search(ctx, t.UserID, embedding, t.Dimension, limit*4)
 	if err != nil {
+		log.Printf("long-term memory vector search failed for user %d: %v", t.UserID, err)
 		return marshalToolResult(map[string]any{
 			"query":    input,
 			"memories": []memoryResult{},
@@ -80,6 +94,7 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 			Model(&models.ConversationArchive{}).
 			Where("user_id = ? AND embedding_id IN ?", t.UserID, embeddingIDs).
 			Pluck("embedding_id", &existingIDs).Error; err != nil {
+			log.Printf("long-term memory archive lookup failed for user %d: %v", t.UserID, err)
 			return "", err
 		}
 	}
@@ -96,6 +111,7 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 		}
 		messages, err := linkedMessages(ctx, t.UserID, item.MessageIDs)
 		if err != nil {
+			log.Printf("long-term memory linked message lookup failed for user %d: %v", t.UserID, err)
 			return "", err
 		}
 
@@ -111,7 +127,7 @@ func (t LongTermMemorySearchTool) Call(ctx context.Context, input string) (strin
 			break
 		}
 	}
-	if err := t.Store.DeleteArchives(ctx, orphanIDs); err != nil {
+	if err := t.Store.DeleteArchives(ctx, orphanIDs, t.Dimension); err != nil {
 		log.Printf("failed to delete %d orphaned archive vectors for user %d: %v", len(orphanIDs), t.UserID, err)
 	}
 

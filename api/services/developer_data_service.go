@@ -22,7 +22,12 @@ const (
 )
 
 type ArchiveVectorStore interface {
-	DeleteArchives(ctx context.Context, embeddingIDs []string) error
+	DeleteArchives(ctx context.Context, embeddingIDs []string, dimension int) error
+}
+
+type archiveVectorRef struct {
+	EmbeddingID        string
+	EmbeddingDimension int
 }
 
 type DeveloperDataService struct {
@@ -162,7 +167,7 @@ func (s *DeveloperDataService) Delete(ctx context.Context, resource string, id i
 	if err != nil {
 		return err
 	}
-	embeddingIDs, err := s.archiveEmbeddingIDs(ctx, resource, []int64{id})
+	vectorRefs, err := s.archiveVectorRefs(ctx, resource, []int64{id})
 	if err != nil {
 		return err
 	}
@@ -173,7 +178,7 @@ func (s *DeveloperDataService) Delete(ctx context.Context, resource string, id i
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	return s.deleteArchiveVectors(ctx, embeddingIDs)
+	return s.deleteArchiveVectors(ctx, vectorRefs)
 }
 
 func (s *DeveloperDataService) DeleteMany(ctx context.Context, resource string, ids []int64) (int64, error) {
@@ -184,7 +189,7 @@ func (s *DeveloperDataService) DeleteMany(ctx context.Context, resource string, 
 	if len(ids) == 0 {
 		return 0, fmt.Errorf("ids are required")
 	}
-	embeddingIDs, err := s.archiveEmbeddingIDs(ctx, resource, ids)
+	vectorRefs, err := s.archiveVectorRefs(ctx, resource, ids)
 	if err != nil {
 		return 0, err
 	}
@@ -192,29 +197,39 @@ func (s *DeveloperDataService) DeleteMany(ctx context.Context, resource string, 
 	if result.Error != nil {
 		return result.RowsAffected, result.Error
 	}
-	if err := s.deleteArchiveVectors(ctx, embeddingIDs); err != nil {
+	if err := s.deleteArchiveVectors(ctx, vectorRefs); err != nil {
 		return result.RowsAffected, err
 	}
 	return result.RowsAffected, nil
 }
 
-func (s *DeveloperDataService) archiveEmbeddingIDs(ctx context.Context, resource string, ids []int64) ([]string, error) {
+func (s *DeveloperDataService) archiveVectorRefs(ctx context.Context, resource string, ids []int64) ([]archiveVectorRef, error) {
 	if resource != DeveloperResourceConversationArchives {
 		return nil, nil
 	}
-	var embeddingIDs []string
+	var refs []archiveVectorRef
 	err := database.DB.WithContext(ctx).
 		Model(&models.ConversationArchive{}).
 		Where("id IN ? AND embedding_id <> ''", ids).
-		Pluck("embedding_id", &embeddingIDs).Error
-	return embeddingIDs, err
+		Select("embedding_id, embedding_dimension").
+		Find(&refs).Error
+	return refs, err
 }
 
-func (s *DeveloperDataService) deleteArchiveVectors(ctx context.Context, embeddingIDs []string) error {
-	if len(embeddingIDs) == 0 || s.archiveVectors == nil {
+func (s *DeveloperDataService) deleteArchiveVectors(ctx context.Context, refs []archiveVectorRef) error {
+	if len(refs) == 0 || s.archiveVectors == nil {
 		return nil
 	}
-	return s.archiveVectors.DeleteArchives(ctx, embeddingIDs)
+	idsByDimension := make(map[int][]string)
+	for _, ref := range refs {
+		idsByDimension[ref.EmbeddingDimension] = append(idsByDimension[ref.EmbeddingDimension], ref.EmbeddingID)
+	}
+	for dimension, embeddingIDs := range idsByDimension {
+		if err := s.archiveVectors.DeleteArchives(ctx, embeddingIDs, dimension); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func normalizeDeveloperPage(page, size int) (int, int) {
@@ -309,8 +324,8 @@ var developerWritableFields = map[string]map[string]bool{
 	DeveloperResourceMessages:             {"user_id": true, "role": true, "text_content": true, "translation": true, "voice_file_id": true, "input_type": true, "token_count": true},
 	DeveloperResourceScheduledTasks:       {"user_id": true, "function_name": true, "args": true, "scheduled_at": true, "status": true},
 	DeveloperResourceUserProfileSummaries: {"user_id": true, "summary": true},
-	DeveloperResourceConversationArchives: {"user_id": true, "message_ids": true, "summary": true, "message_count": true, "embedding_id": true},
-	DeveloperResourceUserSettings:         {"user_id": true, "api_base_url": true, "api_key": true, "model": true, "llm_type": true, "embedding_api_base_url": true, "embedding_api_key": true, "embedding_model": true, "stt_api_base_url": true, "stt_api_key": true, "stt_model": true, "tts_api_base_url": true, "tts_api_key": true, "tts_model": true, "tts_voice": true, "theme": true, "language": true, "native_language": true, "target_language": true, "timezone": true},
+	DeveloperResourceConversationArchives: {"user_id": true, "message_ids": true, "summary": true, "message_count": true, "embedding_id": true, "embedding_dimension": true},
+	DeveloperResourceUserSettings:         {"user_id": true, "api_base_url": true, "api_key": true, "model": true, "llm_type": true, "embedding_api_base_url": true, "embedding_api_key": true, "embedding_model": true, "embedding_dimension": true, "stt_api_base_url": true, "stt_api_key": true, "stt_model": true, "tts_api_base_url": true, "tts_api_key": true, "tts_model": true, "tts_voice": true, "theme": true, "language": true, "native_language": true, "target_language": true, "timezone": true},
 	DeveloperResourceUsers:                {"email": true, "phone": true, "username": true, "password_hash": true, "avatar_url": true, "last_active_at": true, "role": true},
 	DeveloperResourceVoiceFiles:           {"user_id": true, "voice_role": true, "voice_url": true, "duration": true, "file_size": true},
 }

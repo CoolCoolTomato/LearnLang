@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"learnlang-api/services"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,7 @@ func (mpc *ModelProviderController) GetCustomProviderModels(c *gin.Context) {
 
 	models, err := mpc.modelProviderService.GetCustomProviderModels(req.APIBaseURL, req.APIKey)
 	if err != nil {
+		log.Printf("failed to fetch custom provider models: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch models from provider"})
 		return
 	}

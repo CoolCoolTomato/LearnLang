@@ -114,7 +114,7 @@ func (s *ConversationArchiveService) SaveArchiveSegments(ctx context.Context, us
 	return archives, nil
 }
 
-func (s *ConversationArchiveService) UpdateEmbeddingID(ctx context.Context, archiveID int64, embeddingID string) error {
+func (s *ConversationArchiveService) UpdateEmbeddingID(ctx context.Context, archiveID int64, embeddingID string, dimension int) error {
 	embeddingID = strings.TrimSpace(embeddingID)
 	if embeddingID == "" {
 		return nil
@@ -123,7 +123,7 @@ func (s *ConversationArchiveService) UpdateEmbeddingID(ctx context.Context, arch
 	return database.DB.WithContext(ctx).
 		Model(&models.ConversationArchive{}).
 		Where("id = ?", archiveID).
-		Update("embedding_id", embeddingID).Error
+		Updates(map[string]any{"embedding_id": embeddingID, "embedding_dimension": dimension}).Error
 }
 
 func (s *ConversationArchiveService) latestArchiveMessageID(ctx context.Context, userID int64) (int64, error) {

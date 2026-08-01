@@ -91,12 +91,14 @@ func TestDeveloperHelpers(t *testing.T) {
 }
 
 type fakeArchiveVectors struct {
-	ids []string
-	err error
+	ids       []string
+	dimension int
+	err       error
 }
 
-func (f *fakeArchiveVectors) DeleteArchives(_ context.Context, ids []string) error {
+func (f *fakeArchiveVectors) DeleteArchives(_ context.Context, ids []string, dimension int) error {
 	f.ids = append([]string(nil), ids...)
+	f.dimension = dimension
 	return f.err
 }
 
@@ -106,11 +108,12 @@ func TestDeleteArchiveVectors(t *testing.T) {
 	if err := service.deleteArchiveVectors(context.Background(), nil); err != nil || fake.ids != nil {
 		t.Fatalf("empty delete = %#v, %v", fake.ids, err)
 	}
-	if err := service.deleteArchiveVectors(context.Background(), []string{"a", "b"}); err != nil || !reflect.DeepEqual(fake.ids, []string{"a", "b"}) {
+	refs := []archiveVectorRef{{EmbeddingID: "a", EmbeddingDimension: 2}, {EmbeddingID: "b", EmbeddingDimension: 2}}
+	if err := service.deleteArchiveVectors(context.Background(), refs); err != nil || !reflect.DeepEqual(fake.ids, []string{"a", "b"}) || fake.dimension != 2 {
 		t.Fatalf("delete = %#v, %v", fake.ids, err)
 	}
 	fake.err = errors.New("mock failure")
-	if err := service.deleteArchiveVectors(context.Background(), []string{"c"}); !errors.Is(err, fake.err) {
+	if err := service.deleteArchiveVectors(context.Background(), []archiveVectorRef{{EmbeddingID: "c", EmbeddingDimension: 2}}); !errors.Is(err, fake.err) {
 		t.Fatalf("delete error = %v", err)
 	}
 }

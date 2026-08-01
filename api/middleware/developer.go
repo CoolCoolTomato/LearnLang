@@ -3,6 +3,7 @@ package middleware
 import (
 	"learnlang-api/database"
 	"learnlang-api/models"
+	"log"
 	"net/http"
 	"strings"
 
@@ -21,9 +22,13 @@ func DeveloperMiddleware(initialUsername string) gin.HandlerFunc {
 		userID, ok := c.Get("user_id")
 		if ok && strings.TrimSpace(initialUsername) != "" {
 			var user models.User
-			if err := database.DB.Select("username").First(&user, userID).Error; err == nil && user.Username == initialUsername {
+			err := database.DB.Select("username").First(&user, userID).Error
+			if err == nil && user.Username == initialUsername {
 				c.Next()
 				return
+			}
+			if err != nil {
+				log.Printf("developer access user lookup failed for user %v: %v", userID, err)
 			}
 		}
 

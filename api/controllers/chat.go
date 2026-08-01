@@ -36,6 +36,7 @@ func (cc *ChatController) VoiceChat(c *gin.Context) {
 
 	audioFile, err := file.Open()
 	if err != nil {
+		log.Printf("failed to open uploaded chat audio file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open audio file"})
 		return
 	}
@@ -47,12 +48,14 @@ func (cc *ChatController) VoiceChat(c *gin.Context) {
 
 	text, voiceFileID, err := cc.chatService.TranscribeAudio(c.Request.Context(), userID.(int64), audioFile)
 	if err != nil {
+		log.Printf("failed to transcribe chat audio for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to transcribe audio"})
 		return
 	}
 
 	response, err := cc.chatService.ChatWithVoice(c.Request.Context(), userID.(int64), text, voiceFileID)
 	if err != nil {
+		log.Printf("failed to process voice chat for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process chat"})
 		return
 	}
@@ -75,6 +78,7 @@ func (cc *ChatController) Chat(c *gin.Context) {
 
 	response, err := cc.chatService.Chat(c.Request.Context(), userID.(int64), req.Message)
 	if err != nil {
+		log.Printf("failed to process chat for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process chat"})
 		return
 	}
@@ -102,6 +106,7 @@ func (cc *ChatController) GetChatHistory(c *gin.Context) {
 
 	messages, err := cc.chatService.GetChatHistory(c.Request.Context(), userID.(int64), beforeID)
 	if err != nil {
+		log.Printf("failed to fetch chat history for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch chat history"})
 		return
 	}

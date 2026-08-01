@@ -19,6 +19,7 @@ type UserSettings struct {
 	EmbeddingAPIKey     string
 	EmbeddingAPIBaseURL string
 	EmbeddingModel      string
+	EmbeddingDimension  int
 	NativeLanguage      string
 	TargetLanguage      string
 }

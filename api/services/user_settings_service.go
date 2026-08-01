@@ -1,8 +1,11 @@
 package services
 
 import (
+	"errors"
 	"learnlang-api/database"
 	"learnlang-api/models"
+
+	"gorm.io/gorm"
 )
 
 type UserSettingsService struct{}
@@ -21,13 +24,15 @@ func (uss *UserSettingsService) CreateUserSettings(userID int64) error {
 func (uss *UserSettingsService) GetUserSettings(userID int64) (*models.UserSettings, error) {
 	var settings models.UserSettings
 	err := database.DB.Where("user_id = ?", userID).First(&settings).Error
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := uss.CreateUserSettings(userID); err != nil {
 			return nil, err
 		}
 		if err := database.DB.Where("user_id = ?", userID).First(&settings).Error; err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	}
 	return &settings, nil
 }
@@ -67,6 +72,10 @@ func (uss *UserSettingsService) UpdateUserSettings(userID int64, updates map[str
 		case "embedding_model":
 			if v, ok := value.(string); ok && v != "" {
 				settings.EmbeddingModel = v
+			}
+		case "embedding_dimension":
+			if v, ok := value.(int); ok && v > 0 {
+				settings.EmbeddingDimension = v
 			}
 		case "stt_api_base_url":
 			if v, ok := value.(string); ok && v != "" {

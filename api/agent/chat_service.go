@@ -41,7 +41,6 @@ func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.St
 func NewMemoryStore(milvusCfg config.MilvusConfig, client *milvusclient.Client) *memory.Store {
 	return memory.NewStore(memory.Config{
 		Collection: milvusCfg.Collection,
-		Dimension:  milvusCfg.Dimension,
 	}, client)
 }
 
@@ -169,6 +168,7 @@ func toAgentSettings(settings *models.UserSettings) UserSettings {
 		EmbeddingAPIKey:     settings.EmbeddingAPIKey,
 		EmbeddingAPIBaseURL: settings.EmbeddingAPIBaseURL,
 		EmbeddingModel:      settings.EmbeddingModel,
+		EmbeddingDimension:  settings.EmbeddingDimension,
 		NativeLanguage:      settings.NativeLanguage,
 		TargetLanguage:      settings.TargetLanguage,
 	}

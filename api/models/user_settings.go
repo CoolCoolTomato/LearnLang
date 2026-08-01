@@ -14,6 +14,7 @@ type UserSettings struct {
 	EmbeddingAPIBaseURL string    `gorm:"size:255" json:"embedding_api_base_url"`
 	EmbeddingAPIKey     string    `gorm:"size:255" json:"embedding_api_key"`
 	EmbeddingModel      string    `gorm:"size:128" json:"embedding_model"`
+	EmbeddingDimension  int       `gorm:"not null;default:0" json:"embedding_dimension"`
 	STTAPIBaseURL       string    `gorm:"size:255" json:"stt_api_base_url"`
 	STTAPIKey           string    `gorm:"size:255" json:"stt_api_key"`
 	STTModel            string    `gorm:"size:128" json:"stt_model"`

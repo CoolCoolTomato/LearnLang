@@ -5,6 +5,7 @@ import (
 	"learnlang-api/models"
 	"learnlang-api/services"
 	"learnlang-api/utils"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -47,6 +48,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 
 	user, token, err := ac.authService.Login(req.Account, req.Password)
 	if err != nil {
+		log.Printf("login failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -63,6 +65,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 
 	user, token, err := ac.authService.Register(req.Email, req.Phone, req.Password)
 	if err != nil {
+		log.Printf("registration failed: %v", err)
 		switch {
 		case errors.Is(err, utils.ErrEmailExists),
 			errors.Is(err, utils.ErrPhoneExists),
@@ -94,6 +97,7 @@ func (ac *AuthController) ChangePassword(c *gin.Context) {
 
 	err := ac.authService.ChangePassword(userID.(int64), req.NewPassword)
 	if err != nil {
+		log.Printf("failed to change password for user %d: %v", userID.(int64), err)
 		switch {
 		case errors.Is(err, utils.ErrUserNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -114,6 +118,7 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	}
 
 	if err := ac.authService.Logout(userID.(int64)); err != nil {
+		log.Printf("failed to logout user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
 		return
 	}

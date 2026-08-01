@@ -65,6 +65,7 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			APIKey:      req.Settings.EmbeddingAPIKey,
 			APIBaseURL:  req.Settings.EmbeddingAPIBaseURL,
 			Model:       req.Settings.EmbeddingModel,
+			Dimension:   req.Settings.EmbeddingDimension,
 			FallbackKey: req.Settings.APIKey,
 			FallbackURL: req.Settings.APIBaseURL,
 		}, objectParams(map[string]*schema.ParameterInfo{

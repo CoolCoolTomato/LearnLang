@@ -71,6 +71,7 @@ export default function Page() {
     embedding_api_base_url: "",
     embedding_api_key: "",
     embedding_model: "",
+    embedding_dimension: "",
 
     stt_api_base_url: "",
     stt_api_key: "",
@@ -150,6 +151,7 @@ export default function Page() {
         embedding_api_base_url: s.embedding_api_base_url || "",
         embedding_api_key: s.embedding_api_key || "",
         embedding_model: s.embedding_model || "",
+        embedding_dimension: s.embedding_dimension ? String(s.embedding_dimension) : "",
 
         stt_api_base_url: s.stt_api_base_url || "",
         stt_api_key: s.stt_api_key || "",
@@ -183,6 +185,16 @@ export default function Page() {
   const handleSaveSettings = async () => {
     try {
       setSaving(true)
+      const embeddingDimension = Number(settingsFormData.embedding_dimension)
+      const hasEmbeddingConfig = Boolean(
+        settingsFormData.embedding_api_base_url ||
+        settingsFormData.embedding_api_key ||
+        settingsFormData.embedding_model
+      )
+      if (hasEmbeddingConfig && (!Number.isInteger(embeddingDimension) || embeddingDimension <= 0)) {
+        toast.error(t("settings.embeddingDimensionRequired"))
+        return
+      }
       const payload: UpdateSettingsRequest = {
         api_base_url: settingsFormData.api_base_url || undefined,
         api_key: settingsFormData.api_key || undefined,
@@ -190,6 +202,7 @@ export default function Page() {
         embedding_api_base_url: settingsFormData.embedding_api_base_url || undefined,
         embedding_api_key: settingsFormData.embedding_api_key || undefined,
         embedding_model: settingsFormData.embedding_model || undefined,
+        embedding_dimension: embeddingDimension > 0 ? embeddingDimension : undefined,
         stt_api_base_url: settingsFormData.stt_api_base_url || undefined,
         stt_api_key: settingsFormData.stt_api_key || undefined,
         stt_model: settingsFormData.stt_model || undefined,
@@ -469,6 +482,25 @@ export default function Page() {
                       )
                     }
                   }}
+                  extra={
+                    <Field
+                      label={t("settings.embeddingDimension")}
+                      htmlFor="embedding-dimension"
+                      description={t("settings.embeddingDimensionDescription")}
+                    >
+                      <Input
+                        id="embedding-dimension"
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        required
+                        value={settingsFormData.embedding_dimension}
+                        onChange={(event) => patchForm({ embedding_dimension: event.target.value })}
+                        className="h-11 rounded-xl"
+                      />
+                    </Field>
+                  }
                 />
               </SettingsSection>
             </TabsContent>

@@ -50,6 +50,9 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 	if err != nil {
 		return nil, err
 	}
+	if settings.EmbeddingDimension <= 0 {
+		return nil, fmt.Errorf("embedding dimension is required")
+	}
 	vector, err := embedding.Create(ctx, embedding.Config{
 		APIKey:      settings.EmbeddingAPIKey,
 		APIBaseURL:  settings.EmbeddingAPIBaseURL,
@@ -61,7 +64,7 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 		return nil, err
 	}
 
-	memories, err := s.memoryStore.Search(ctx, userID, vector, limit*4)
+	memories, err := s.memoryStore.Search(ctx, userID, vector, settings.EmbeddingDimension, limit*4)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +98,7 @@ func (s *DeveloperArchiveSearchService) Search(ctx context.Context, userID int64
 			break
 		}
 	}
-	if err := s.memoryStore.DeleteArchives(ctx, orphanIDs); err != nil {
+	if err := s.memoryStore.DeleteArchives(ctx, orphanIDs, settings.EmbeddingDimension); err != nil {
 		log.Printf("failed to delete %d orphaned archive vectors for user %d: %v", len(orphanIDs), userID, err)
 	}
 

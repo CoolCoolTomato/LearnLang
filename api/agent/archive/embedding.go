@@ -25,6 +25,10 @@ func (i archiveIndexerImpl) Index(ctx context.Context, userID int64, settings *m
 	if i.memoryStore == nil || len(archives) == 0 {
 		return
 	}
+	if settings.EmbeddingDimension <= 0 {
+		log.Printf("conversation archive embedding skipped for user %d: embedding dimension is required", userID)
+		return
+	}
 
 	for _, archive := range archives {
 		embedding, err := createEmbedding(ctx, settings, archive.Summary)
@@ -33,13 +37,13 @@ func (i archiveIndexerImpl) Index(ctx context.Context, userID int64, settings *m
 			continue
 		}
 
-		embeddingID, err := i.memoryStore.InsertArchive(ctx, userID, archive.Summary, archive.MessageIDs, embedding)
+		embeddingID, err := i.memoryStore.InsertArchive(ctx, userID, archive.Summary, archive.MessageIDs, embedding, settings.EmbeddingDimension)
 		if err != nil {
 			log.Printf("conversation archive vector insert failed for archive %d: %v", archive.ID, err)
 			continue
 		}
 
-		if err := i.archiveService.UpdateEmbeddingID(ctx, archive.ID, embeddingID); err != nil {
+		if err := i.archiveService.UpdateEmbeddingID(ctx, archive.ID, embeddingID, settings.EmbeddingDimension); err != nil {
 			log.Printf("conversation archive embedding ID update failed for archive %d: %v", archive.ID, err)
 		}
 	}

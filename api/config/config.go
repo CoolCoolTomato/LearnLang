@@ -42,7 +42,6 @@ type MilvusConfig struct {
 	Host       string `mapstructure:"host"`
 	Port       string `mapstructure:"port"`
 	Collection string `mapstructure:"collection"`
-	Dimension  int    `mapstructure:"dimension"`
 }
 
 type UserConfig struct {
@@ -71,7 +70,6 @@ func Load() *Config {
 	viper.SetDefault("milvus.host", "localhost")
 	viper.SetDefault("milvus.port", "19530")
 	viper.SetDefault("milvus.collection", "user_memory_summaries")
-	viper.SetDefault("milvus.dimension", 1536)
 
 	viper.AutomaticEnv()
 

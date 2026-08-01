@@ -6,6 +6,7 @@ import (
 	"errors"
 	"learnlang-api/services"
 	"learnlang-api/utils"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,6 +45,7 @@ type UpdateMySettingsRequest struct {
 	EmbeddingAPIBaseURL string `json:"embedding_api_base_url"`
 	EmbeddingAPIKey     string `json:"embedding_api_key"`
 	EmbeddingModel      string `json:"embedding_model"`
+	EmbeddingDimension  int    `json:"embedding_dimension"`
 	STTAPIBaseURL       string `json:"stt_api_base_url"`
 	STTAPIKey           string `json:"stt_api_key"`
 	STTModel            string `json:"stt_model"`
@@ -65,6 +67,7 @@ func (pc *ProfileController) GetMyProfile(c *gin.Context) {
 
 	user, err := pc.userService.GetUser(userID.(int64))
 	if err != nil {
+		log.Printf("failed to fetch profile for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -87,6 +90,7 @@ func (pc *ProfileController) UpdateMyProfile(c *gin.Context) {
 
 	user, err := pc.userService.UpdateProfile(userID.(int64), req.Email, req.Phone, req.Username)
 	if err != nil {
+		log.Printf("failed to update profile for user %d: %v", userID.(int64), err)
 		switch {
 		case errors.Is(err, utils.ErrUserNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -117,12 +121,14 @@ func (pc *ProfileController) UploadAvatar(c *gin.Context) {
 	}
 
 	if err := os.MkdirAll("uploads/avatar", 0755); err != nil {
+		log.Printf("failed to prepare avatar directory: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare avatar directory"})
 		return
 	}
 
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {
+		log.Printf("failed to generate avatar filename: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate avatar filename"})
 		return
 	}
@@ -130,6 +136,7 @@ func (pc *ProfileController) UploadAvatar(c *gin.Context) {
 	filename := hex.EncodeToString(random) + ext
 	savePath := filepath.Join("uploads/avatar", filename)
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		log.Printf("failed to save uploaded avatar: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save avatar"})
 		return
 	}
@@ -150,6 +157,7 @@ func (pc *ProfileController) GetAvatar(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Avatar not found"})
 			return
 		}
+		log.Printf("failed to access avatar %s: %v", filename, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to access avatar"})
 		return
 	}
@@ -182,12 +190,14 @@ func (pc *ProfileController) UpdateAvatar(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Avatar file not found"})
 			return
 		}
+		log.Printf("failed to access avatar file %s: %v", filename, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to access avatar file"})
 		return
 	}
 
 	user, err := pc.userService.UpdateAvatar(userID.(int64), filename)
 	if err != nil {
+		log.Printf("failed to update avatar for user %d: %v", userID.(int64), err)
 		switch {
 		case errors.Is(err, utils.ErrUserNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -209,6 +219,7 @@ func (pc *ProfileController) GetMySettings(c *gin.Context) {
 
 	settings, err := pc.userSettingsService.GetUserSettings(userID.(int64))
 	if err != nil {
+		log.Printf("failed to fetch settings for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
 		return
 	}
@@ -251,6 +262,13 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 	if req.EmbeddingModel != "" {
 		updates["embedding_model"] = req.EmbeddingModel
 	}
+	if (req.EmbeddingAPIBaseURL != "" || req.EmbeddingAPIKey != "" || req.EmbeddingModel != "") && req.EmbeddingDimension <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embedding dimension must be a positive integer"})
+		return
+	}
+	if req.EmbeddingDimension > 0 {
+		updates["embedding_dimension"] = req.EmbeddingDimension
+	}
 	if req.STTAPIBaseURL != "" {
 		updates["stt_api_base_url"] = req.STTAPIBaseURL
 	}
@@ -284,6 +302,7 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 
 	settings, err := pc.userSettingsService.UpdateUserSettings(userID.(int64), updates)
 	if err != nil {
+		log.Printf("failed to update settings for user %d: %v", userID.(int64), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}

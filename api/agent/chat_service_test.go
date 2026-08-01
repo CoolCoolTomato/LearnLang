@@ -22,7 +22,7 @@ func TestNewChatServiceAndMemoryStore(t *testing.T) {
 	if service == nil || service.agent == nil {
 		t.Fatalf("NewChatService() = %#v", service)
 	}
-	store := NewMemoryStore(config.MilvusConfig{Collection: "custom", Dimension: 8}, nil)
+	store := NewMemoryStore(config.MilvusConfig{Collection: "custom"}, nil)
 	if store == nil {
 		t.Fatal("NewMemoryStore() returned nil")
 	}
@@ -32,11 +32,11 @@ func TestToAgentSettingsUsesFallbacks(t *testing.T) {
 	settings := &models.UserSettings{
 		STTAPIKey: " stt-key ", STTAPIBaseURL: " https://stt.example ",
 		Model: "model", LLMType: "openai", EmbeddingAPIKey: "embed",
-		EmbeddingAPIBaseURL: "https://embed.example", EmbeddingModel: "embedding",
+		EmbeddingAPIBaseURL: "https://embed.example", EmbeddingModel: "embedding", EmbeddingDimension: 1024,
 		NativeLanguage: "zh", TargetLanguage: "en",
 	}
 	got := toAgentSettings(settings)
-	if got.APIKey != "stt-key" || got.APIBaseURL != "https://stt.example" || got.Model != "model" || got.EmbeddingModel != "embedding" || got.NativeLanguage != "zh" || got.TargetLanguage != "en" {
+	if got.APIKey != "stt-key" || got.APIBaseURL != "https://stt.example" || got.Model != "model" || got.EmbeddingModel != "embedding" || got.EmbeddingDimension != 1024 || got.NativeLanguage != "zh" || got.TargetLanguage != "en" {
 		t.Fatalf("toAgentSettings() = %#v", got)
 	}
 	settings.APIKey = " primary "
