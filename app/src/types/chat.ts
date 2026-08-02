@@ -31,7 +31,6 @@ export interface ChatMessage {
   voice_file_id?: number
   voice_file?: VoiceFileInMessage
   input_type: InputType
-  token_count: number
   created_at: string
 }
 

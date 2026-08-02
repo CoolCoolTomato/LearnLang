@@ -151,11 +151,11 @@ func TestMessageServiceCRUD(t *testing.T) {
 	if err := database.DB.Create(&voice).Error; err != nil {
 		t.Fatal(err)
 	}
-	message, err := service.CreateMessage(context.Background(), 1, "user", "hello", "你好", &voice.ID, "voice", 3)
+	message, err := service.CreateMessage(context.Background(), 1, "user", "hello", "你好", &voice.ID, "voice")
 	if err != nil || message.ID == 0 {
 		t.Fatalf("CreateMessage() = %#v, %v", message, err)
 	}
-	_, _ = service.CreateMessage(context.Background(), 2, "user", "other", "", nil, "text", 0)
+	_, _ = service.CreateMessage(context.Background(), 2, "user", "other", "", nil, "text")
 	got, err := service.GetMessage(message.ID)
 	if err != nil || got.TextContent != "hello" {
 		t.Fatalf("GetMessage() = %#v, %v", got, err)
@@ -164,8 +164,8 @@ func TestMessageServiceCRUD(t *testing.T) {
 	if err != nil || list.Total != 1 || len(list.Messages) != 1 {
 		t.Fatalf("ListMessages() = %#v, %v", list, err)
 	}
-	updated, err := service.UpdateMessage(message.ID, "assistant", "answer", "回答", nil, "text", 9)
-	if err != nil || updated.Role != "assistant" || updated.TokenCount != 9 {
+	updated, err := service.UpdateMessage(message.ID, "assistant", "answer", "回答", nil, "text")
+	if err != nil || updated.Role != "assistant" || updated.TextContent != "answer" {
 		t.Fatalf("UpdateMessage() = %#v, %v", updated, err)
 	}
 	if err := service.DeleteMessage(message.ID); err != nil {

@@ -17,7 +17,7 @@ type MessageListResult struct {
 	Messages []models.Message
 }
 
-func (ms *MessageService) CreateMessage(ctx context.Context, userID int64, role, textContent, translation string, voiceFileID *int64, inputType string, tokenCount int) (*models.Message, error) {
+func (ms *MessageService) CreateMessage(ctx context.Context, userID int64, role, textContent, translation string, voiceFileID *int64, inputType string) (*models.Message, error) {
 	message := models.Message{
 		UserID:      userID,
 		Role:        role,
@@ -25,7 +25,6 @@ func (ms *MessageService) CreateMessage(ctx context.Context, userID int64, role,
 		Translation: translation,
 		VoiceFileID: voiceFileID,
 		InputType:   inputType,
-		TokenCount:  tokenCount,
 	}
 
 	if err := database.DB.WithContext(ctx).Create(&message).Error; err != nil {
@@ -62,7 +61,7 @@ func (ms *MessageService) ListMessages(page, pageSize int, userID string) (*Mess
 	return &MessageListResult{Total: total, Messages: messages}, nil
 }
 
-func (ms *MessageService) UpdateMessage(messageID int64, role, textContent, translation string, voiceFileID *int64, inputType string, tokenCount int) (*models.Message, error) {
+func (ms *MessageService) UpdateMessage(messageID int64, role, textContent, translation string, voiceFileID *int64, inputType string) (*models.Message, error) {
 	var message models.Message
 	if err := database.DB.First(&message, messageID).Error; err != nil {
 		return nil, err
@@ -83,10 +82,6 @@ func (ms *MessageService) UpdateMessage(messageID int64, role, textContent, tran
 	if inputType != "" {
 		message.InputType = inputType
 	}
-	if tokenCount > 0 {
-		message.TokenCount = tokenCount
-	}
-
 	if err := database.DB.Save(&message).Error; err != nil {
 		return nil, err
 	}

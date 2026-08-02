@@ -70,7 +70,7 @@ func (crs *ChatRuntimeService) ensureWelcomeMessage(ctx context.Context, userID 
 		original, translation := welcomeMessage(settings.TargetLanguage, settings.NativeLanguage)
 		return tx.Create(&models.Message{
 			UserID: userID, Role: "assistant", TextContent: original,
-			Translation: translation, InputType: "text", TokenCount: 0,
+			Translation: translation, InputType: "text",
 		}).Error
 	})
 }

@@ -218,7 +218,7 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 }
 
 func (crs *ChatRuntimeService) CreateUserMessage(ctx context.Context, userID int64, text string, voiceFileID *int64, messageType string) (*models.Message, error) {
-	message, err := crs.messageService.CreateMessage(ctx, userID, "user", text, "", voiceFileID, messageType, 0)
+	message, err := crs.messageService.CreateMessage(ctx, userID, "user", text, "", voiceFileID, messageType)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (crs *ChatRuntimeService) SaveAssistantReply(ctx context.Context, userID in
 		return 0, err
 	}
 
-	message, err := crs.messageService.CreateMessage(ctx, userID, "assistant", original, translation, voiceFileID, "text", 0)
+	message, err := crs.messageService.CreateMessage(ctx, userID, "assistant", original, translation, voiceFileID, "text")
 	if err != nil {
 		return 0, err
 	}

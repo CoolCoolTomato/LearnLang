@@ -13,7 +13,6 @@ type Message struct {
 	VoiceFileID *int64     `gorm:"index" json:"voice_file_id"`
 	VoiceFile   *VoiceFile `gorm:"foreignKey:VoiceFileID" json:"voice_file,omitempty"`
 	InputType   string     `gorm:"size:16" json:"input_type"`
-	TokenCount  int        `json:"token_count"`
 	CreatedAt   time.Time  `gorm:"index:idx_messages_user_created,priority:2" json:"created_at"`
 }
 

@@ -321,7 +321,7 @@ func allowedDeveloperValues(resource string, values map[string]any) map[string]a
 }
 
 var developerWritableFields = map[string]map[string]bool{
-	DeveloperResourceMessages:             {"user_id": true, "role": true, "text_content": true, "translation": true, "voice_file_id": true, "input_type": true, "token_count": true},
+	DeveloperResourceMessages:             {"user_id": true, "role": true, "text_content": true, "translation": true, "voice_file_id": true, "input_type": true},
 	DeveloperResourceScheduledTasks:       {"user_id": true, "function_name": true, "args": true, "scheduled_at": true, "status": true},
 	DeveloperResourceUserProfileSummaries: {"user_id": true, "summary": true},
 	DeveloperResourceConversationArchives: {"user_id": true, "message_ids": true, "summary": true, "message_count": true, "embedding_id": true, "embedding_dimension": true},
