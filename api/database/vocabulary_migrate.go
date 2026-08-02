@@ -153,6 +153,34 @@ func migrateLegacyVocabularySchema() error {
 	})
 }
 
+func migrateDefaultVocabularySettings() error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		hasLegacyDefault, err := databaseColumnExists(tx, "vocabularies", "is_default")
+		if err != nil || !hasLegacyDefault {
+			return err
+		}
+		if err := tx.Exec(`
+			WITH selected AS (
+				SELECT DISTINCT ON (v.user_id) v.user_id, v.id
+				FROM vocabularies v
+				ORDER BY v.user_id, v.is_default DESC, v.created_at ASC, v.id ASC
+			)
+			UPDATE user_settings settings
+			SET default_vocabulary_id = selected.id
+			FROM selected
+			WHERE settings.user_id = selected.user_id
+				AND settings.default_vocabulary_id IS NULL
+		`).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`
+			DROP INDEX IF EXISTS idx_vocabularies_one_default_per_user;
+			DROP INDEX IF EXISTS idx_vocabularies_is_default;
+			ALTER TABLE vocabularies DROP COLUMN IF EXISTS is_default;
+		`).Error
+	})
+}
+
 func databaseColumnExists(tx *gorm.DB, table, column string) (bool, error) {
 	var count int64
 	err := tx.Raw(`

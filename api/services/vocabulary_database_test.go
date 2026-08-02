@@ -34,13 +34,15 @@ func TestVocabularyServiceCRUDAndImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create(default) error = %v", err)
 	}
-	if !first.IsDefault || first.TargetLanguage != "en-US" || first.NativeLanguage != "zh-CN" || first.Name != "Default" {
+	if first.TargetLanguage != "en-US" || first.NativeLanguage != "zh-CN" || first.Name != "Default" {
 		t.Fatalf("default vocabulary = %#v", first)
 	}
+	assertDefaultVocabulary(t, 1, first.ID)
 	second, err := service.Create(context.Background(), 1, VocabularyCreateInput{Name: "Review", TargetLanguage: "en", NativeLanguage: "zh"})
-	if err != nil || second.IsDefault {
+	if err != nil {
 		t.Fatalf("Create(second) = %#v, %v", second, err)
 	}
+	assertDefaultVocabulary(t, 1, first.ID)
 	if _, err := service.Create(context.Background(), 1, VocabularyCreateInput{Name: "Default", TargetLanguage: "en", NativeLanguage: "zh"}); !errors.Is(err, ErrVocabularyNameConflict) {
 		t.Fatalf("duplicate name error = %v", err)
 	}
@@ -49,18 +51,17 @@ func TestVocabularyServiceCRUDAndImport(t *testing.T) {
 		t.Fatalf("List() = %#v, %v", list, err)
 	}
 
-	falseValue := false
-	if _, err := service.Update(context.Background(), 1, first.ID, VocabularyUpdateInput{IsDefault: &falseValue}); !errors.Is(err, ErrVocabularyDefaultRequired) {
-		t.Fatalf("demote default error = %v", err)
+	if err := service.SetDefault(context.Background(), 1, second.ID); err != nil {
+		t.Fatalf("SetDefault(second) error = %v", err)
 	}
-	trueValue := true
+	assertDefaultVocabulary(t, 1, second.ID)
+	if err := service.SetDefault(context.Background(), 2, second.ID); !errors.Is(err, ErrVocabularyNotFound) {
+		t.Fatalf("foreign vocabulary set default error = %v", err)
+	}
 	newName := "Review Updated"
-	updated, err := service.Update(context.Background(), 1, second.ID, VocabularyUpdateInput{Name: &newName, IsDefault: &trueValue})
-	if err != nil || !updated.IsDefault || updated.Name != newName {
+	updated, err := service.Update(context.Background(), 1, second.ID, VocabularyUpdateInput{Name: &newName})
+	if err != nil || updated.Name != newName {
 		t.Fatalf("Update(second) = %#v, %v", updated, err)
-	}
-	if err := database.DB.First(first, first.ID).Error; err != nil || first.IsDefault {
-		t.Fatalf("old default = %#v, %v", first, err)
 	}
 
 	input := VocabularyImportInput{
@@ -99,11 +100,20 @@ func TestVocabularyServiceCRUDAndImport(t *testing.T) {
 	if err := service.Delete(context.Background(), 1, second.ID); err != nil {
 		t.Fatalf("Delete(default) error = %v", err)
 	}
-	if err := database.DB.First(first, first.ID).Error; err != nil || !first.IsDefault {
-		t.Fatalf("replacement default = %#v, %v", first, err)
-	}
+	assertDefaultVocabulary(t, 1, first.ID)
 	if err := service.Delete(context.Background(), 2, first.ID); !errors.Is(err, ErrVocabularyNotFound) {
 		t.Fatalf("foreign vocabulary delete error = %v", err)
+	}
+}
+
+func assertDefaultVocabulary(t *testing.T, userID, vocabularyID int64) {
+	t.Helper()
+	var settings models.UserSettings
+	if err := database.DB.Where("user_id = ?", userID).First(&settings).Error; err != nil {
+		t.Fatal(err)
+	}
+	if settings.DefaultVocabularyID == nil || *settings.DefaultVocabularyID != vocabularyID {
+		t.Fatalf("default_vocabulary_id = %v, want %d", settings.DefaultVocabularyID, vocabularyID)
 	}
 }
 

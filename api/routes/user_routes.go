@@ -77,6 +77,7 @@ func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *uti
 		vocabularies.POST("", vocabularyController.Create)
 		vocabularies.POST("/lookup", vocabularyController.LookupMessage)
 		vocabularies.PUT("/:id", vocabularyController.Update)
+		vocabularies.PUT("/:id/default", vocabularyController.SetDefault)
 		vocabularies.DELETE("/:id", vocabularyController.Delete)
 		vocabularies.GET("/:id/entries", vocabularyController.GetEntries)
 		vocabularies.DELETE("/:id/entries", vocabularyController.ClearEntries)

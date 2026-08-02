@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -24,7 +25,6 @@ var (
 	ErrVocabularyMessageNotFound  = errors.New("message not found")
 	ErrVocabularyNameConflict     = errors.New("a vocabulary with this name already exists")
 	ErrVocabularyLanguageRequired = errors.New("target language and native language are required")
-	ErrVocabularyDefaultRequired  = errors.New("a default vocabulary is required")
 )
 
 type VocabularyService struct {
@@ -35,14 +35,12 @@ type VocabularyCreateInput struct {
 	Name           string `json:"name"`
 	TargetLanguage string `json:"target_language"`
 	NativeLanguage string `json:"native_language"`
-	IsDefault      bool   `json:"is_default"`
 }
 
 type VocabularyUpdateInput struct {
 	Name           *string `json:"name"`
 	TargetLanguage *string `json:"target_language"`
 	NativeLanguage *string `json:"native_language"`
-	IsDefault      *bool   `json:"is_default"`
 }
 
 type VocabularyImportResult struct {
@@ -80,11 +78,12 @@ func (s *VocabularyService) List(ctx context.Context, userID int64) ([]Vocabular
 	vocabularies := make([]VocabularySummary, 0)
 	err := database.DB.WithContext(ctx).
 		Table("vocabularies").
-		Select("vocabularies.id, vocabularies.name, vocabularies.target_language, vocabularies.native_language, vocabularies.is_default, COUNT(vocabulary_entries.id) AS entry_count").
+		Select("vocabularies.id, vocabularies.name, vocabularies.target_language, vocabularies.native_language, user_settings.default_vocabulary_id = vocabularies.id AS is_default, COUNT(vocabulary_entries.id) AS entry_count").
 		Joins("LEFT JOIN vocabulary_entries ON vocabulary_entries.vocabulary_id = vocabularies.id").
+		Joins("LEFT JOIN user_settings ON user_settings.user_id = vocabularies.user_id").
 		Where("vocabularies.user_id = ?", userID).
-		Group("vocabularies.id").
-		Order("vocabularies.is_default DESC, vocabularies.updated_at DESC, vocabularies.id DESC").
+		Group("vocabularies.id, user_settings.default_vocabulary_id").
+		Order("CASE WHEN user_settings.default_vocabulary_id = vocabularies.id THEN 0 ELSE 1 END, vocabularies.updated_at DESC, vocabularies.id DESC").
 		Scan(&vocabularies).Error
 	return vocabularies, err
 }
@@ -111,15 +110,9 @@ func (s *VocabularyService) Create(ctx context.Context, userID int64, input Voca
 			return err
 		}
 
-		var defaultCount int64
-		if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Count(&defaultCount).Error; err != nil {
+		settings, err := findUserSettingsForVocabularyUpdate(tx, userID)
+		if err != nil {
 			return err
-		}
-		isDefault := input.IsDefault || defaultCount == 0
-		if isDefault {
-			if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Update("is_default", false).Error; err != nil {
-				return err
-			}
 		}
 
 		vocabulary = models.Vocabulary{
@@ -127,9 +120,14 @@ func (s *VocabularyService) Create(ctx context.Context, userID int64, input Voca
 			Name:           name,
 			TargetLanguage: targetLanguage,
 			NativeLanguage: nativeLanguage,
-			IsDefault:      isDefault,
 		}
-		return tx.Create(&vocabulary).Error
+		if err := tx.Create(&vocabulary).Error; err != nil {
+			return err
+		}
+		if settings.DefaultVocabularyID == nil {
+			return tx.Model(settings).Update("default_vocabulary_id", vocabulary.ID).Error
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -185,31 +183,16 @@ func (s *VocabularyService) Update(ctx context.Context, userID, vocabularyID int
 			}
 		}
 
-		isDefault := current.IsDefault
-		if input.IsDefault != nil {
-			if !*input.IsDefault && current.IsDefault {
-				return ErrVocabularyDefaultRequired
-			}
-			if *input.IsDefault && !current.IsDefault {
-				if err := tx.Model(&models.Vocabulary{}).Where("user_id = ? AND is_default = ?", userID, true).Update("is_default", false).Error; err != nil {
-					return err
-				}
-				isDefault = true
-			}
-		}
-
 		if err := tx.Model(current).Updates(map[string]any{
 			"name":            name,
 			"target_language": targetLanguage,
 			"native_language": nativeLanguage,
-			"is_default":      isDefault,
 		}).Error; err != nil {
 			return err
 		}
 		current.Name = name
 		current.TargetLanguage = targetLanguage
 		current.NativeLanguage = nativeLanguage
-		current.IsDefault = isDefault
 		vocabulary = current
 		return nil
 	})
@@ -228,20 +211,42 @@ func (s *VocabularyService) Delete(ctx context.Context, userID, vocabularyID int
 		if err != nil {
 			return err
 		}
+		settings, err := findUserSettingsForVocabularyUpdate(tx, userID)
+		if err != nil {
+			return err
+		}
+		wasDefault := settings.DefaultVocabularyID != nil && *settings.DefaultVocabularyID == vocabulary.ID
 		if err := tx.Delete(vocabulary).Error; err != nil {
 			return err
 		}
-		if vocabulary.IsDefault {
+		if wasDefault {
 			var replacement models.Vocabulary
 			operation := tx.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Limit(1).Find(&replacement)
 			if operation.Error != nil {
 				return operation.Error
 			}
 			if operation.RowsAffected > 0 {
-				return tx.Model(&replacement).Update("is_default", true).Error
+				return tx.Model(settings).Update("default_vocabulary_id", replacement.ID).Error
 			}
+			return tx.Model(settings).Update("default_vocabulary_id", nil).Error
 		}
 		return nil
+	})
+}
+
+func (s *VocabularyService) SetDefault(ctx context.Context, userID, vocabularyID int64) error {
+	return database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := acquireVocabularyUserLock(tx, userID); err != nil {
+			return err
+		}
+		if _, err := findOwnedVocabulary(tx, userID, vocabularyID); err != nil {
+			return err
+		}
+		settings, err := findUserSettingsForVocabularyUpdate(tx, userID)
+		if err != nil {
+			return err
+		}
+		return tx.Model(settings).Update("default_vocabulary_id", vocabularyID).Error
 	})
 }
 
@@ -470,6 +475,24 @@ func findOwnedVocabulary(db *gorm.DB, userID, vocabularyID int64) (*models.Vocab
 		return nil, ErrVocabularyNotFound
 	}
 	return &vocabulary, nil
+}
+
+func findUserSettingsForVocabularyUpdate(tx *gorm.DB, userID int64) (*models.UserSettings, error) {
+	var settings models.UserSettings
+	operation := tx.Where("user_id = ?", userID).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Limit(1).
+		Find(&settings)
+	if operation.Error != nil {
+		return nil, operation.Error
+	}
+	if operation.RowsAffected == 0 {
+		settings = models.UserSettings{UserID: userID, LLMType: models.LLMTypeOpenAI}
+		if err := tx.Create(&settings).Error; err != nil {
+			return nil, err
+		}
+	}
+	return &settings, nil
 }
 
 func ensureVocabularyNameAvailable(tx *gorm.DB, userID int64, name string, excludeID int64) error {

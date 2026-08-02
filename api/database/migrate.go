@@ -29,16 +29,12 @@ func Migrate() error {
 	if err := migrateLegacyVocabularySchema(); err != nil {
 		return err
 	}
-	if err := DB.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_conversation_archives_message_ids_gin
-		ON conversation_archives USING GIN (message_ids jsonb_path_ops)
-	`).Error; err != nil {
+	if err := migrateDefaultVocabularySettings(); err != nil {
 		return err
 	}
 	if err := DB.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_vocabularies_one_default_per_user
-		ON vocabularies (user_id)
-		WHERE is_default = TRUE
+		CREATE INDEX IF NOT EXISTS idx_conversation_archives_message_ids_gin
+		ON conversation_archives USING GIN (message_ids jsonb_path_ops)
 	`).Error; err != nil {
 		return err
 	}

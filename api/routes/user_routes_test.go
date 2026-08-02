@@ -13,8 +13,8 @@ func TestSetupUserRoutesRegistersExpectedEndpoints(t *testing.T) {
 	api := router.Group("/api")
 	SetupUserRoutes(api, &config.Config{JWT: config.JWTConfig{Secret: "secret"}}, nil, &Services{})
 	routes := router.Routes()
-	if len(routes) != 28 {
-		t.Fatalf("registered %d routes, want 28", len(routes))
+	if len(routes) != 29 {
+		t.Fatalf("registered %d routes, want 29", len(routes))
 	}
 	wanted := map[string]bool{
 		"POST /api/user/auth/login":              false,
@@ -22,6 +22,7 @@ func TestSetupUserRoutesRegistersExpectedEndpoints(t *testing.T) {
 		"GET /api/user/profile":                  false,
 		"GET /api/user/ws/chat":                  false,
 		"POST /api/user/vocabularies/:id/import": false,
+		"PUT /api/user/vocabularies/:id/default": false,
 		"GET /api/user/usage/events":             false,
 		"GET /api/user/usage/summary":            false,
 	}

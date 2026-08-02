@@ -188,7 +188,7 @@ func findUserLanguageVocabularies(db *gorm.DB, userID int64, targetLanguage, nat
 		query = query.Where(vocabularyLanguageMatchSQL("native_language"), normalizeVocabularyLanguage(nativeLanguage))
 	}
 	var vocabularies []models.Vocabulary
-	if err := query.Order("is_default DESC, id ASC").Find(&vocabularies).Error; err != nil {
+	if err := query.Order(gorm.Expr("CASE WHEN id = (SELECT default_vocabulary_id FROM user_settings WHERE user_id = ?) THEN 0 ELSE 1 END, id ASC", userID)).Find(&vocabularies).Error; err != nil {
 		return nil, err
 	}
 	return vocabularies, nil

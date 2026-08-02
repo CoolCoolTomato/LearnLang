@@ -76,6 +76,18 @@ func (vc *VocabularyController) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (vc *VocabularyController) SetDefault(c *gin.Context) {
+	vocabularyID, ok := vocabularyIDParam(c)
+	if !ok {
+		return
+	}
+	if err := vc.vocabularyService.SetDefault(c.Request.Context(), c.GetInt64("user_id"), vocabularyID); err != nil {
+		vc.writeError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (vc *VocabularyController) Import(c *gin.Context) {
 	vocabularyID, ok := vocabularyIDParam(c)
 	if !ok {
@@ -166,8 +178,7 @@ func (vc *VocabularyController) writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	case errors.Is(err, services.ErrVocabularyInvalidImport),
 		errors.Is(err, services.ErrVocabularyInvalidInput),
-		errors.Is(err, services.ErrVocabularyLanguageRequired),
-		errors.Is(err, services.ErrVocabularyDefaultRequired):
+		errors.Is(err, services.ErrVocabularyLanguageRequired):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Vocabulary operation failed"})

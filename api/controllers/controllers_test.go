@@ -59,7 +59,6 @@ func TestVocabularyControllerErrorMapping(t *testing.T) {
 		{services.ErrVocabularyInvalidImport, http.StatusBadRequest},
 		{services.ErrVocabularyInvalidInput, http.StatusBadRequest},
 		{services.ErrVocabularyLanguageRequired, http.StatusBadRequest},
-		{services.ErrVocabularyDefaultRequired, http.StatusBadRequest},
 		{http.ErrAbortHandler, http.StatusInternalServerError},
 	}
 	for _, tt := range tests {
