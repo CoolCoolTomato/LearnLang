@@ -17,6 +17,7 @@ import type {
   AIUsageOperation,
   AIUsageSummary,
 } from "@/types/ai-usage"
+import { Pagination } from "../vocabulary/components/pagination"
 
 const operations: Array<AIUsageOperation | "all"> = [
   "all",
@@ -42,10 +43,10 @@ export default function UsagePage() {
     "all"
   )
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(20)
   const [total, setTotal] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
-  const pageSize = 20
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -190,30 +191,18 @@ export default function UsagePage() {
           </CardContent>
         </Card>
 
-        {pageCount > 1 ? (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              {t("usage.pagination", { page, total: pageCount })}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((value) => value - 1)}
-              >
-                {t("usage.previous")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= pageCount || loading}
-                onClick={() => setPage((value) => value + 1)}
-              >
-                {t("usage.next")}
-              </Button>
-            </div>
-          </div>
+        {total > 0 ? (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalPages={pageCount}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPage(1)
+            }}
+          />
         ) : null}
       </div>
     </div>
