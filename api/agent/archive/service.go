@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"learnlang-api/agent/memory"
+	"learnlang-api/aiusage"
 	"learnlang-api/models"
 	"learnlang-api/services"
 )
@@ -25,12 +26,12 @@ type archiveIndexer interface {
 	Index(context.Context, int64, *models.UserSettings, []models.ConversationArchive)
 }
 
-func NewService(archiveService *services.ConversationArchiveService, settings *services.UserSettingsService, memoryStore *memory.Store) *Service {
+func NewService(archiveService *services.ConversationArchiveService, settings *services.UserSettingsService, memoryStore *memory.Store, usage ...aiusage.Recorder) *Service {
 	return &Service{
 		archiveService: archiveService,
 		settings:       settings,
 		segmenter:      llmSegmenter{},
-		indexer:        newArchiveIndexer(archiveService, memoryStore),
+		indexer:        newArchiveIndexer(archiveService, memoryStore, usage...),
 	}
 }
 

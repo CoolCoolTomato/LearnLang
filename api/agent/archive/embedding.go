@@ -4,6 +4,7 @@ import (
 	"context"
 	"learnlang-api/agent/embedding"
 	"learnlang-api/agent/memory"
+	"learnlang-api/aiusage"
 	"learnlang-api/models"
 	"learnlang-api/services"
 	"log"
@@ -12,12 +13,18 @@ import (
 type archiveIndexerImpl struct {
 	archiveService *services.ConversationArchiveService
 	memoryStore    *memory.Store
+	usageRecorder  aiusage.Recorder
 }
 
-func newArchiveIndexer(archiveService *services.ConversationArchiveService, memoryStore *memory.Store) archiveIndexer {
+func newArchiveIndexer(archiveService *services.ConversationArchiveService, memoryStore *memory.Store, usage ...aiusage.Recorder) archiveIndexer {
+	var recorder aiusage.Recorder
+	if len(usage) > 0 {
+		recorder = usage[0]
+	}
 	return archiveIndexerImpl{
 		archiveService: archiveService,
 		memoryStore:    memoryStore,
+		usageRecorder:  recorder,
 	}
 }
 
@@ -32,6 +39,19 @@ func (i archiveIndexerImpl) Index(ctx context.Context, userID int64, settings *m
 
 	for _, archive := range archives {
 		embedding, err := createEmbedding(ctx, settings, archive.Summary)
+		if i.usageRecorder != nil {
+			status := models.AIUsageStatusSucceeded
+			if err != nil {
+				status = models.AIUsageStatusFailed
+			}
+			modelName := settings.EmbeddingModel
+			if modelName == "" {
+				modelName = "text-embedding-3-small"
+			}
+			if recordErr := i.usageRecorder.RecordAIUsage(ctx, aiusage.Record{UserID: userID, Operation: models.AIOperationEmbedding, Model: modelName, Usage: float64(len([]rune(archive.Summary))), Unit: models.AIUsageUnitTokens, Status: status}); recordErr != nil {
+				log.Printf("record embedding AI usage failed for user %d: %v", userID, recordErr)
+			}
+		}
 		if err != nil {
 			log.Printf("conversation archive embedding failed for archive %d: %v", archive.ID, err)
 			continue

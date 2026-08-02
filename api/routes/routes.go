@@ -50,9 +50,9 @@ func SetupRoutes(r *gin.Engine, cfg *config.Config) {
 	aiUsageService := services.NewAIUsageService()
 	translationService := services.NewTranslationService(userSettingsService, aiUsageService)
 
-	chatRuntimeService := services.NewChatRuntimeService(messageService, userSettingsService, userProfileSummaryService, scheduledTaskService, voiceFileService, hub)
+	chatRuntimeService := services.NewChatRuntimeService(messageService, userSettingsService, userProfileSummaryService, scheduledTaskService, voiceFileService, hub, aiUsageService)
 	memoryStore := agent.NewMemoryStore(cfg.Milvus, database.MilvusClient)
-	conversationArchiver := archive.NewService(conversationArchiveService, userSettingsService, memoryStore)
+	conversationArchiver := archive.NewService(conversationArchiveService, userSettingsService, memoryStore, aiUsageService)
 	chatService := agent.NewChatService(chatRuntimeService, memoryStore, conversationArchiver, vocabularyService, aiUsageService)
 
 	scheduledTaskService.RegisterHandler("send_message", services.NewSendMessageHandler(chatRuntimeService))

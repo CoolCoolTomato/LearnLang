@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"learnlang-api/aiusage"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+	"unicode/utf8"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -24,6 +26,7 @@ type ChatRuntimeService struct {
 	profileSummaryService *UserProfileSummaryService
 	scheduledTaskService  *ScheduledTaskService
 	voiceFileService      *VoiceFileService
+	usageRecorder         aiusage.Recorder
 	wsHub                 WSHub
 }
 
@@ -38,13 +41,19 @@ func NewChatRuntimeService(
 	scheduledTaskService *ScheduledTaskService,
 	voiceFileService *VoiceFileService,
 	wsHub WSHub,
+	usage ...aiusage.Recorder,
 ) *ChatRuntimeService {
+	var usageRecorder aiusage.Recorder
+	if len(usage) > 0 {
+		usageRecorder = usage[0]
+	}
 	return &ChatRuntimeService{
 		messageService:        messageService,
 		userSettingsService:   userSettingsService,
 		profileSummaryService: profileSummaryService,
 		scheduledTaskService:  scheduledTaskService,
 		voiceFileService:      voiceFileService,
+		usageRecorder:         usageRecorder,
 		wsHub:                 wsHub,
 	}
 }
@@ -111,6 +120,7 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 		File:  file,
 	})
 	if err != nil {
+		crs.recordUsage(ctx, userID, models.AIOperationSTT, model, 0, models.AIUsageUnitSeconds, models.AIUsageStatusFailed)
 		return "", nil, err
 	}
 	duration, err := detectMP3DurationSeconds(filepath)
@@ -118,6 +128,7 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 		log.Printf("failed to detect uploaded voice duration: %v", err)
 		duration = 0
 	}
+	crs.recordUsage(ctx, userID, models.AIOperationSTT, model, float64(duration), models.AIUsageUnitSeconds, models.AIUsageStatusSucceeded)
 
 	voiceFile := &models.VoiceFile{
 		UserID:    userID,
@@ -158,8 +169,10 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
 	})
 	if err != nil {
+		crs.recordUsage(ctx, userID, models.AIOperationTTS, model, 0, models.AIUsageUnitCharacters, models.AIUsageStatusFailed)
 		return nil, err
 	}
+	crs.recordUsage(ctx, userID, models.AIOperationTTS, model, float64(utf8.RuneCountInString(text)), models.AIUsageUnitCharacters, models.AIUsageStatusSucceeded)
 	defer func() {
 		if err := res.Body.Close(); err != nil {
 			log.Printf("failed to close text-to-speech response body: %v", err)
@@ -215,6 +228,15 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 	}
 
 	return &voiceFile.ID, nil
+}
+
+func (crs *ChatRuntimeService) recordUsage(ctx context.Context, userID int64, operation, model string, usage float64, unit, status string) {
+	if crs.usageRecorder == nil {
+		return
+	}
+	if err := crs.usageRecorder.RecordAIUsage(context.WithoutCancel(ctx), aiusage.Record{UserID: userID, Operation: operation, Model: model, Usage: usage, Unit: unit, Status: status}); err != nil {
+		log.Printf("record %s AI usage failed for user %d: %v", operation, userID, err)
+	}
 }
 
 func (crs *ChatRuntimeService) CreateUserMessage(ctx context.Context, userID int64, text string, voiceFileID *int64, messageType string) (*models.Message, error) {
