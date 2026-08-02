@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"learnlang-api/aiusage"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"math"
@@ -46,6 +47,12 @@ type AIUsageSummary struct {
 }
 
 type AIUsageService struct{}
+
+var _ aiusage.Recorder = (*AIUsageService)(nil)
+
+func (s *AIUsageService) RecordAIUsage(ctx context.Context, input aiusage.Record) error {
+	return s.Record(ctx, AIUsageRecord{UserID: input.UserID, Operation: input.Operation, Model: input.Model, Usage: input.Usage, Unit: input.Unit, Status: input.Status})
+}
 
 func NewAIUsageService() *AIUsageService {
 	return &AIUsageService{}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"learnlang-api/agent/archive"
 	"learnlang-api/agent/memory"
+	"learnlang-api/aiusage"
 	"learnlang-api/config"
 	"learnlang-api/models"
 	"learnlang-api/services"
@@ -25,7 +26,11 @@ type ChatService struct {
 	archiveLocks sync.Map
 }
 
-func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service, vocabularyService *services.VocabularyService) *ChatService {
+func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.Store, archiver *archive.Service, vocabularyService *services.VocabularyService, usage ...aiusage.Recorder) *ChatService {
+	var usageRecorder aiusage.Recorder
+	if len(usage) > 0 {
+		usageRecorder = usage[0]
+	}
 	return &ChatService{
 		runtime:     runtime,
 		memoryStore: memoryStore,
@@ -33,6 +38,7 @@ func NewChatService(runtime *services.ChatRuntimeService, memoryStore *memory.St
 			MemoryStore:       memoryStore,
 			Runtime:           runtime,
 			VocabularyService: vocabularyService,
+			UsageRecorder:     usageRecorder,
 		}),
 		archiver: archiver,
 	}

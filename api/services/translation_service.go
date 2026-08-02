@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	agentllm "learnlang-api/agent/llm"
+	"learnlang-api/aiusage"
 	"learnlang-api/models"
+	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -30,13 +32,18 @@ type translationGenerator func(context.Context, *models.UserSettings, string) (s
 type TranslationService struct {
 	settings translationSettingsProvider
 	generate translationGenerator
+	usage    aiusage.Recorder
 }
 
-func NewTranslationService(settings *UserSettingsService) *TranslationService {
-	return &TranslationService{
+func NewTranslationService(settings *UserSettingsService, usage ...aiusage.Recorder) *TranslationService {
+	service := &TranslationService{
 		settings: settings,
 		generate: generateTranslation,
 	}
+	if len(usage) > 0 {
+		service.usage = usage[0]
+	}
+	return service
 }
 
 func (s *TranslationService) Translate(ctx context.Context, userID int64, text string) (string, error) {
@@ -66,6 +73,15 @@ func (s *TranslationService) Translate(ctx context.Context, userID int64, text s
 	translated, err := s.generate(ctx, settings, prompt)
 	if err != nil {
 		return "", err
+	}
+	if s.usage != nil {
+		modelName := settings.Model
+		if modelName == "" {
+			modelName = "unknown"
+		}
+		if recordErr := s.usage.RecordAIUsage(context.WithoutCancel(ctx), aiusage.Record{UserID: userID, Operation: models.AIOperationTranslation, Model: modelName, Usage: float64(utf8.RuneCountInString(text)), Unit: "tokens", Status: models.AIUsageStatusSucceeded}); recordErr != nil {
+			log.Printf("record translation AI usage failed for user %d: %v", userID, recordErr)
+		}
 	}
 
 	translated = strings.TrimSpace(translated)

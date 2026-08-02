@@ -6,6 +6,7 @@ import (
 	"learnlang-api/agent/memory"
 	"learnlang-api/agent/prompts"
 	agenttools "learnlang-api/agent/tools"
+	"learnlang-api/aiusage"
 	"learnlang-api/services"
 	"time"
 
@@ -19,12 +20,14 @@ type Config struct {
 	MemoryStore       *memory.Store
 	Runtime           *services.ChatRuntimeService
 	VocabularyService *services.VocabularyService
+	UsageRecorder     aiusage.Recorder
 }
 
 type Service struct {
 	memoryStore       *memory.Store
 	runtime           *services.ChatRuntimeService
 	vocabularyService *services.VocabularyService
+	usageRecorder     aiusage.Recorder
 }
 
 const maxChatToolIterations = 12
@@ -34,6 +37,7 @@ func NewService(cfg Config) *Service {
 		memoryStore:       cfg.MemoryStore,
 		runtime:           cfg.Runtime,
 		vocabularyService: cfg.VocabularyService,
+		usageRecorder:     cfg.UsageRecorder,
 	}
 }
 
@@ -46,11 +50,11 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 	if err != nil {
 		return nil, err
 	}
-
 	llm, err := agentllm.New(ctx, req.Settings.APIKey, req.Settings.APIBaseURL, req.Settings.Model, req.Settings.LLMType)
 	if err != nil {
 		return nil, err
 	}
+	llm = aiusage.NewChatModel(llm, s.usageRecorder, req.UserID, "chat", req.Settings.Model)
 
 	turnState := agenttools.NewTurnState()
 	tools := []tool.BaseTool{
