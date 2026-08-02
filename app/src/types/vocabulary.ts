@@ -7,7 +7,6 @@ export interface Vocabulary {
   name: string
   target_language: string
   native_language: string
-  is_default: boolean
   created_at: string
   updated_at: string
 }
@@ -25,14 +24,12 @@ export interface VocabularyInput {
   name: string
   target_language?: string
   native_language?: string
-  is_default?: boolean
 }
 
 export interface VocabularyUpdateInput {
   name?: string
   target_language?: string
   native_language?: string
-  is_default?: boolean
 }
 
 export interface VocabularyPronunciation {

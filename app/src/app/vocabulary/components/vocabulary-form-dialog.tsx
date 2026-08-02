@@ -34,7 +34,6 @@ export function VocabularyFormDialog({
   const [name, setName] = React.useState("")
   const [targetLanguage, setTargetLanguage] = React.useState("")
   const [nativeLanguage, setNativeLanguage] = React.useState("")
-  const [isDefault, setIsDefault] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState("")
   const editing = vocabulary !== null
@@ -44,7 +43,6 @@ export function VocabularyFormDialog({
     setName(vocabulary?.name ?? "")
     setTargetLanguage(vocabulary?.target_language ?? "")
     setNativeLanguage(vocabulary?.native_language ?? "")
-    setIsDefault(vocabulary?.is_default ?? false)
     setError("")
   }, [open, vocabulary])
 
@@ -61,7 +59,6 @@ export function VocabularyFormDialog({
         name: name.trim(),
         target_language: targetLanguage.trim(),
         native_language: nativeLanguage.trim(),
-        is_default: isDefault,
       }
       const result = vocabulary
         ? await updateVocabulary(vocabulary.id, payload)
@@ -145,19 +142,6 @@ export function VocabularyFormDialog({
               />
             </div>
           </div>
-
-          {!vocabulary?.is_default ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={isDefault}
-                onChange={(event) => setIsDefault(event.target.checked)}
-                disabled={saving}
-                className="size-4 rounded border-input accent-primary"
-              />
-              {t("vocabulary.setDefault")}
-            </label>
-          ) : null}
 
           {error ? (
             <div className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

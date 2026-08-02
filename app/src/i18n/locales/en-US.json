@@ -363,6 +363,8 @@
     "editDescription": "Update the basic information for this vocabulary.",
     "nameRequired": "Enter a vocabulary name",
     "setDefault": "Set as default vocabulary",
+    "setDefaultSuccess": "Default vocabulary updated",
+    "setDefaultFailed": "Failed to set default vocabulary",
     "createSuccess": "Vocabulary created",
     "updateSuccess": "Vocabulary updated",
     "saveFailed": "Failed to save vocabulary",

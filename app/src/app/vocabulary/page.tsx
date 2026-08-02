@@ -20,6 +20,7 @@ import {
   deleteVocabulary,
   getVocabularyEntries,
   listVocabularies,
+  setDefaultVocabulary,
 } from "@/api/vocabulary"
 import { Button } from "@/components/ui/button"
 import {
@@ -74,6 +75,7 @@ export default function VocabularyPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [clearing, setClearing] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
+  const [settingDefault, setSettingDefault] = React.useState(false)
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [entriesVersion, setEntriesVersion] = React.useState(0)
   const entriesRequest = React.useRef(0)
@@ -228,6 +230,25 @@ export default function VocabularyPage() {
     }
   }
 
+  const handleSetDefault = async () => {
+    if (!selectedID || selected?.is_default) return
+    try {
+      setSettingDefault(true)
+      await setDefaultVocabulary(selectedID)
+      await loadVocabularies(selectedID)
+      toast.success(t("vocabulary.setDefaultSuccess"))
+    } catch (setDefaultError: unknown) {
+      toast.error(
+        getErrorMessage(
+          setDefaultError,
+          t("vocabulary.setDefaultFailed", "Failed to set default vocabulary")
+        )
+      )
+    } finally {
+      setSettingDefault(false)
+    }
+  }
+
   const toggleExpanded = (entryID: number) => {
     setExpanded((current) => {
       const next = new Set(current)
@@ -292,6 +313,17 @@ export default function VocabularyPage() {
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  {!selected.is_default ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => void handleSetDefault()}
+                      disabled={settingDefault}
+                      title={t("vocabulary.setDefault")}
+                    >
+                      <Star />
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="icon"

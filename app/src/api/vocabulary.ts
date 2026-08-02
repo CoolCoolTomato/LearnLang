@@ -27,6 +27,10 @@ export function updateVocabulary(
   return http.put<Vocabulary>(`${basePath}/${vocabularyId}`, data)
 }
 
+export function setDefaultVocabulary(vocabularyId: number) {
+  return http.put<void>(`${basePath}/${vocabularyId}/default`)
+}
+
 export function deleteVocabulary(vocabularyId: number) {
   return http.delete<void>(`${basePath}/${vocabularyId}`)
 }

@@ -363,6 +363,8 @@
     "editDescription": "修改当前词库的基本信息。",
     "nameRequired": "请输入词库名称",
     "setDefault": "设为默认词库",
+    "setDefaultSuccess": "默认词库已更新",
+    "setDefaultFailed": "设置默认词库失败",
     "createSuccess": "词库创建成功",
     "updateSuccess": "词库更新成功",
     "saveFailed": "词库保存失败",
