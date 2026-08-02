@@ -7,6 +7,7 @@ import {
   Settings,
   UserRound,
   X,
+  type LucideIcon,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation } from "react-router-dom"
@@ -20,15 +21,35 @@ import { cn } from "@/lib/utils"
 
 const SIDEBAR_STORAGE_KEY = "learnlang_sidebar_open"
 
-const navigation = [
-  { path: "/chat", label: "navigation.chat", icon: MessageCircle },
+interface NavigationItem {
+  path: string
+  label: string
+  icon: LucideIcon
+}
+
+const navigationGroups: Array<{
+  label: string
+  items: NavigationItem[]
+}> = [
   {
-    path: "/vocabulary",
-    label: "navigation.vocabulary",
-    icon: BookOpenText,
+    label: "navigation.groups.start",
+    items: [
+      { path: "/chat", label: "navigation.chat", icon: MessageCircle },
+      {
+        path: "/vocabulary",
+        label: "navigation.vocabulary",
+        icon: BookOpenText,
+      },
+    ],
   },
-  { path: "/usage", label: "navigation.usage", icon: BarChart3 },
-  { path: "/setting", label: "settings.title", icon: Settings },
+  {
+    label: "navigation.groups.data",
+    items: [{ path: "/usage", label: "navigation.usage", icon: BarChart3 }],
+  },
+  {
+    label: "navigation.groups.system",
+    items: [{ path: "/setting", label: "settings.title", icon: Settings }],
+  },
 ]
 
 export interface AppLayoutOutletContext {
@@ -228,22 +249,28 @@ function AppSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2">
-        {expanded ? (
-          <div className="flex h-8 items-center px-2 text-xs font-medium text-sidebar-foreground/70">
-            {t("navigation.main", "Main navigation")}
-          </div>
-        ) : null}
         <nav
-          className="flex flex-col gap-1"
+          className="flex flex-col gap-3"
           aria-label={t("navigation.main", "Main navigation")}
         >
-          {navigation.map((item) => (
-            <SidebarLink
-              key={item.path}
-              item={item}
-              expanded={expanded}
-              onNavigate={mobile ? closeMobile : undefined}
-            />
+          {navigationGroups.map((group) => (
+            <div key={group.label}>
+              {expanded ? (
+                <div className="flex h-7 items-center px-2 text-xs font-medium text-sidebar-foreground/60">
+                  {t(group.label)}
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                {group.items.map((item) => (
+                  <SidebarLink
+                    key={item.path}
+                    item={item}
+                    expanded={expanded}
+                    onNavigate={mobile ? closeMobile : undefined}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
       </div>
@@ -334,7 +361,7 @@ function SidebarLink({
   expanded,
   onNavigate,
 }: {
-  item: (typeof navigation)[number]
+  item: NavigationItem
   expanded: boolean
   onNavigate?: () => void
 }) {

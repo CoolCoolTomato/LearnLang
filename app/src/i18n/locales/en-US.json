@@ -87,6 +87,7 @@
   },
   "navigation": {
     "main": "Main navigation",
+    "groups": { "start": "Start", "data": "Data", "system": "System" },
     "chat": "Chat",
     "vocabulary": "Vocabulary",
     "usage": "Usage",

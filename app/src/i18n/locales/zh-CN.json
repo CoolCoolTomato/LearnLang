@@ -87,6 +87,7 @@
   },
   "navigation": {
     "main": "主要导航",
+    "groups": { "start": "开始", "data": "数据", "system": "系统" },
     "chat": "对话",
     "vocabulary": "词库",
     "usage": "用量",
