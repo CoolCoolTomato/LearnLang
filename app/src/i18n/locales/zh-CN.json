@@ -89,6 +89,7 @@
     "main": "主要导航",
     "chat": "对话",
     "vocabulary": "词库",
+    "usage": "用量",
     "comingSoon": "即将推出",
     "toggle": "切换侧栏",
     "close": "关闭侧栏"
@@ -105,6 +106,20 @@
     "feature2Desc": "覆盖日常交流、职场、旅行等情境",
     "feature3Title": "稳定可靠",
     "feature3Desc": "持续保存会话与学习过程"
+  },
+  "usage": {
+    "eyebrow": "AI 用量",
+    "title": "用量",
+    "description": "查看您的 AI 请求和消耗情况。",
+    "refresh": "刷新",
+    "empty": "暂无用量记录",
+    "requests": "{{count}} 次请求",
+    "pagination": "第 {{page}} / {{total}} 页",
+    "previous": "上一页",
+    "next": "下一页",
+    "loadFailed": "用量加载失败",
+    "operations": {"all": "全部操作", "chat": "对话", "tts": "语音合成", "stt": "语音识别", "embedding": "向量", "translation": "翻译"},
+    "status": {"succeeded": "成功", "failed": "失败"}
   },
   "settings": {
     "title": "设置",

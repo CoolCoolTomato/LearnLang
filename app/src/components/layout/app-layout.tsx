@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import {
+  BarChart3,
   BookOpenText,
   MessageCircle,
   PanelLeft,
@@ -26,6 +27,7 @@ const navigation = [
     label: "navigation.vocabulary",
     icon: BookOpenText,
   },
+  { path: "/usage", label: "navigation.usage", icon: BarChart3 },
   { path: "/setting", label: "settings.title", icon: Settings },
 ]
 
@@ -75,9 +77,11 @@ export function AppLayout() {
       ? t("profile.title", "Profile")
       : location.pathname === "/vocabulary"
         ? t("vocabulary.title", "Vocabulary")
-        : location.pathname === "/setting"
-          ? t("settings.title", "Settings")
-          : "LearnLang"
+        : location.pathname === "/usage"
+          ? t("usage.title", "Usage")
+          : location.pathname === "/setting"
+            ? t("settings.title", "Settings")
+            : "LearnLang"
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-sidebar">

@@ -89,6 +89,7 @@
     "main": "Main navigation",
     "chat": "Chat",
     "vocabulary": "Vocabulary",
+    "usage": "Usage",
     "comingSoon": "Soon",
     "toggle": "Toggle sidebar",
     "close": "Close sidebar"
@@ -105,6 +106,20 @@
     "feature2Desc": "Covering daily communication, workplace, travel and more",
     "feature3Title": "Stable \u0026 Reliable",
     "feature3Desc": "Continuously save conversations and learning progress"
+  },
+  "usage": {
+    "eyebrow": "AI USAGE",
+    "title": "Usage",
+    "description": "Review your AI requests and consumption.",
+    "refresh": "Refresh",
+    "empty": "No usage records yet",
+    "requests": "{{count}} requests",
+    "pagination": "Page {{page}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next",
+    "loadFailed": "Failed to load usage",
+    "operations": {"all": "All operations", "chat": "Chat", "tts": "Text to speech", "stt": "Speech to text", "embedding": "Embedding", "translation": "Translation"},
+    "status": {"succeeded": "Succeeded", "failed": "Failed"}
   },
   "settings": {
     "title": "Settings",
