@@ -171,7 +171,9 @@ export function AppLayout() {
         <div
           className={cn(
             "min-h-0 flex-1",
-            location.pathname === "/chat" || location.pathname === "/vocabulary"
+            location.pathname === "/chat" ||
+              location.pathname === "/vocabulary" ||
+              location.pathname === "/usage"
               ? "overflow-hidden"
               : "overflow-auto"
           )}

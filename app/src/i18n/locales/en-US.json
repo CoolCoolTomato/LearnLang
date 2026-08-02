@@ -118,8 +118,22 @@
     "previous": "Previous",
     "next": "Next",
     "loadFailed": "Failed to load usage",
-    "operations": {"all": "All operations", "chat": "Chat", "tts": "Text to speech", "stt": "Speech to text", "embedding": "Embedding", "translation": "Translation"},
-    "status": {"succeeded": "Succeeded", "failed": "Failed"}
+    "columns": {
+      "operation": "Operation",
+      "model": "Model",
+      "usage": "Usage",
+      "status": "Status",
+      "time": "Time"
+    },
+    "operations": {
+      "all": "All operations",
+      "chat": "Chat",
+      "tts": "Text to speech",
+      "stt": "Speech to text",
+      "embedding": "Embedding",
+      "translation": "Translation"
+    },
+    "status": { "succeeded": "Succeeded", "failed": "Failed" }
   },
   "settings": {
     "title": "Settings",
