@@ -21,6 +21,7 @@ func Migrate() error {
 		&models.VocabularyExample{},
 		&models.VocabularyEntryRelation{},
 		&models.VocabularyAgentSelection{},
+		&models.AIUsageEvent{},
 	)
 	if err != nil {
 		return err

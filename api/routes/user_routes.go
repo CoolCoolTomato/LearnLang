@@ -18,6 +18,7 @@ func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *uti
 	voiceFileController := controllers.NewVoiceFileController(svc.VoiceFileService)
 	modelProviderController := controllers.NewModelProviderController(svc.ModelProviderService)
 	vocabularyController := controllers.NewVocabularyController(svc.VocabularyService)
+	aiUsageController := controllers.NewAIUsageController(svc.AIUsageService)
 
 	userGroup := api.Group("/user")
 
@@ -80,5 +81,12 @@ func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *uti
 		vocabularies.GET("/:id/entries", vocabularyController.GetEntries)
 		vocabularies.DELETE("/:id/entries", vocabularyController.ClearEntries)
 		vocabularies.POST("/:id/import", vocabularyController.Import)
+	}
+
+	usage := userGroup.Group("/usage")
+	usage.Use(middleware.AuthMiddleware(cfg.JWT.Secret, tokenManager))
+	{
+		usage.GET("/events", aiUsageController.List)
+		usage.GET("/summary", aiUsageController.Summary)
 	}
 }
