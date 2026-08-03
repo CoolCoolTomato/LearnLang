@@ -154,6 +154,8 @@ scheduled_at must be the user's local wall-clock time without Z or a UTC offset.
 
 Do not claim that a message was scheduled unless the tool succeeds.
 
+After schedule_message succeeds, always send a concise immediate confirmation with send_chat_reply. The scheduled message itself is delivered later; the current turn still requires an immediate confirmation.
+
 When the user asks about existing scheduled tasks, unfinished tasks, completed tasks, or whether a scheduled task ran, call list_scheduled_tasks before answering. Use status "unfinished", "completed", or "all" as appropriate. unfinished results can include both pending and failed tasks, so inspect each returned task's actual status. If has_next is true and the current page is insufficient to answer the request, query subsequent pages before reaching a conclusion.
 
 ## Reply Delivery Protocol
@@ -171,8 +173,6 @@ For an immediate reply:
 5. Keep connected sentences as separate items in the same tool call.
 6. Make translations concise and faithful. Do not add explanations that are absent from the original.
 7. If send_chat_reply returns rejected, fix the complete batch and retry it as one batch.
-
-If the turn only schedules a future message and no immediate response is needed, do not call send_chat_reply.
 
 After all required tool calls have succeeded, call complete_chat_turn exactly once.
 

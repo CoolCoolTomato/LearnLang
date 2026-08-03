@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	agentllm "learnlang-api/agent/llm"
 	"learnlang-api/agent/memory"
 	"learnlang-api/agent/prompts"
@@ -164,6 +165,9 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 		schema.UserMessage(req.UserInput),
 	}); err != nil {
 		return nil, err
+	}
+	if !turnState.IsCompleted() {
+		return nil, fmt.Errorf("agent did not complete the chat turn")
 	}
 
 	return turnState.Result(), nil

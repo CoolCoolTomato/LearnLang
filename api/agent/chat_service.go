@@ -104,6 +104,7 @@ func (s *ChatService) processAIResponse(ctx context.Context, userID int64, input
 		s.runtime.SendAgentError(userID)
 		return
 	}
+	s.runtime.SendAgentTurnCompleted(userID)
 }
 
 func (s *ChatService) archiveConversation(userID int64) {

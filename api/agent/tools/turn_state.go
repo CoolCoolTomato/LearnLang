@@ -17,6 +17,7 @@ type Sentence struct {
 type TurnState struct {
 	mu                    sync.Mutex
 	result                ChatResult
+	completed             bool
 	vocabularyToolResults map[string]string
 }
 
@@ -49,10 +50,21 @@ func (s *TurnState) AddReply(original, translation string, messageID int64) {
 	s.result.MessageIDs = append(s.result.MessageIDs, messageID)
 }
 
-func (s *TurnState) Complete(detectedLanguage string) {
+func (s *TurnState) Complete(detectedLanguage string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.completed {
+		return false
+	}
 	s.result.DetectedLanguage = detectedLanguage
+	s.completed = true
+	return true
+}
+
+func (s *TurnState) IsCompleted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.completed
 }
 
 func (s *TurnState) VocabularyToolResult(selectionType string) (string, bool) {

@@ -38,7 +38,14 @@ export interface AgentErrorEvent {
   type: "agent_error"
 }
 
-export type ChatWebSocketEvent = ChatMessage | AgentErrorEvent
+export interface AgentTurnCompletedEvent {
+  type: "agent_turn_completed"
+}
+
+export type ChatWebSocketEvent =
+  | ChatMessage
+  | AgentErrorEvent
+  | AgentTurnCompletedEvent
 
 export interface GetChatHistoryParams extends Record<
   string,

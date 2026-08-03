@@ -60,9 +60,13 @@ func TestChatSystemPromptIncludesDefaultsAndData(t *testing.T) {
 		"complete_chat_turn",
 		"scheduled_at",
 		"list_scheduled_tasks",
+		"always send a concise immediate confirmation",
 	} {
 		if !strings.Contains(prompt, expected) {
 			t.Errorf("prompt does not contain %q", expected)
 		}
+	}
+	if strings.Contains(prompt, "do not call send_chat_reply") {
+		t.Fatal("prompt still suppresses immediate scheduling confirmations")
 	}
 }

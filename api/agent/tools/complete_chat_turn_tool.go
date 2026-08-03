@@ -27,7 +27,9 @@ func (t CompleteChatTurnTool) Call(ctx context.Context, input string) (string, e
 	}
 
 	if t.State != nil {
-		t.State.Complete(args.DetectedLanguage)
+		if !t.State.Complete(args.DetectedLanguage) {
+			return "", fmt.Errorf("complete_chat_turn may only be called once")
+		}
 	}
 
 	return marshalToolResult(map[string]any{

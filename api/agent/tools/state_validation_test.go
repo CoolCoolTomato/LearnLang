@@ -42,6 +42,12 @@ func TestCompleteChatTurnTool(t *testing.T) {
 	if state.Result().DetectedLanguage != "fr" {
 		t.Fatalf("detected language = %q", state.Result().DetectedLanguage)
 	}
+	if !state.IsCompleted() {
+		t.Fatal("turn state is not marked completed")
+	}
+	if _, err := tool.Call(context.Background(), `{"detected_language":"fr"}`); err == nil {
+		t.Fatal("CompleteChatTurnTool accepted a second completion")
+	}
 	if _, err := tool.Call(context.Background(), `{`); err == nil {
 		t.Fatal("Call() accepted invalid JSON")
 	}

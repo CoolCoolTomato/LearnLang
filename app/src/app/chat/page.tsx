@@ -59,6 +59,11 @@ export default function ChatPage() {
           return
         }
 
+        if ("type" in message && message.type === "agent_turn_completed") {
+          setIsResponding(false)
+          return
+        }
+
         setMessages((prev) => [...prev, message as ChatMessage])
         setIsResponding(false)
       } catch (err) {

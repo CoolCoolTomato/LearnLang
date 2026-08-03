@@ -308,6 +308,17 @@ func (crs *ChatRuntimeService) SendAgentError(userID int64) {
 	crs.wsHub.SendToUser(userID, eventJSON)
 }
 
+func (crs *ChatRuntimeService) SendAgentTurnCompleted(userID int64) {
+	eventJSON, err := json.Marshal(struct {
+		Type string `json:"type"`
+	}{Type: "agent_turn_completed"})
+	if err != nil {
+		log.Printf("failed to marshal Agent completion event: %v", err)
+		return
+	}
+	crs.wsHub.SendToUser(userID, eventJSON)
+}
+
 func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64, message, translation string, scheduledAt time.Time) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err

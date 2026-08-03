@@ -74,6 +74,10 @@ func TestChatRuntimeMessageAndTaskOperations(t *testing.T) {
 	if hub.userID != 1 || len(hub.messages) != 1 || !strings.Contains(string(hub.messages[0]), "agent_error") {
 		t.Fatalf("agent error events = %#v", hub.messages)
 	}
+	runtime.SendAgentTurnCompleted(1)
+	if len(hub.messages) != 2 || !strings.Contains(string(hub.messages[1]), "agent_turn_completed") {
+		t.Fatalf("agent completion events = %#v", hub.messages)
+	}
 	settings, err := runtime.UserSettings(1)
 	if err != nil || settings.TargetLanguage != "en-US" {
 		t.Fatalf("UserSettings() = %#v, %v", settings, err)
