@@ -15,7 +15,7 @@ func (t CompleteChatTurnTool) Name() string {
 }
 
 func (t CompleteChatTurnTool) Description() string {
-	return `Finish the current chat turn after sending all reply sentences, or after scheduling a future message when no immediate reply is needed. Call exactly once. Input must be JSON: {"detected_language":"language code"}.`
+	return `Finish the current chat turn after sending all required reply sentences, including an immediate confirmation after scheduling a future message. Call exactly once. Input must be JSON: {"detected_language":"language code"}.`
 }
 
 func (t CompleteChatTurnTool) Call(ctx context.Context, input string) (string, error) {
