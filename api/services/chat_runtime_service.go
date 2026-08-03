@@ -331,6 +331,13 @@ func (crs *ChatRuntimeService) ScheduleMessage(ctx context.Context, userID int64
 	return task.ID, nil
 }
 
+func (crs *ChatRuntimeService) ListScheduledTasks(ctx context.Context, userID int64, filter string, page, pageSize int) (*ScheduledTaskPage, error) {
+	if crs.scheduledTaskService == nil {
+		return nil, fmt.Errorf("scheduled task service is not configured")
+	}
+	return crs.scheduledTaskService.ListUserTasks(ctx, userID, filter, page, pageSize)
+}
+
 func (crs *ChatRuntimeService) GetChatHistory(ctx context.Context, userID int64, beforeID *int64) ([]models.Message, error) {
 	if beforeID == nil {
 		if err := crs.ensureWelcomeMessage(ctx, userID); err != nil {

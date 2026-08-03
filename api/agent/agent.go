@@ -108,6 +108,15 @@ func (s *Service) RunChat(ctx context.Context, req ChatRequest) (*ChatResult, er
 			"translation":  {Type: schema.String, Desc: "native-language translation", Required: true},
 			"scheduled_at": {Type: schema.String, Desc: "local datetime", Required: true},
 		}), nil),
+		agenttools.NewEinoTool(agenttools.ScheduledTaskQueryTool{
+			UserID:   req.UserID,
+			Timezone: req.Timezone,
+			Lister:   s.runtime,
+		}, objectParams(map[string]*schema.ParameterInfo{
+			"status":    {Type: schema.String, Desc: "unfinished, completed, or all"},
+			"page":      {Type: schema.Integer, Desc: "page number starting at 1"},
+			"page_size": {Type: schema.Integer, Desc: "items per page, maximum 50"},
+		}), nil),
 		agenttools.NewEinoTool(agenttools.RandomNewVocabularyWordTool{
 			UserID:           req.UserID,
 			RequestMessageID: req.ContextBeforeMessageID,

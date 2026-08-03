@@ -59,6 +59,7 @@ func TestChatSystemPromptIncludesDefaultsAndData(t *testing.T) {
 		"send_chat_reply exactly once",
 		"complete_chat_turn",
 		"scheduled_at",
+		"list_scheduled_tasks",
 	} {
 		if !strings.Contains(prompt, expected) {
 			t.Errorf("prompt does not contain %q", expected)

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"learnlang-api/database"
 	"learnlang-api/models"
 	"time"
@@ -12,6 +13,21 @@ type ScheduledTaskService struct {
 }
 
 type TaskHandler func(args string) error
+
+const (
+	ScheduledTaskFilterAll        = "all"
+	ScheduledTaskFilterUnfinished = "unfinished"
+	ScheduledTaskFilterCompleted  = "completed"
+)
+
+type ScheduledTaskPage struct {
+	Tasks      []models.ScheduledTask
+	Total      int64
+	Page       int
+	PageSize   int
+	TotalPages int
+	HasNext    bool
+}
 
 func NewScheduledTaskService() *ScheduledTaskService {
 	return &ScheduledTaskService{
@@ -102,6 +118,50 @@ func (s *ScheduledTaskService) ListTasks(userID *int64, status *string, page int
 		return nil, err
 	}
 	return tasks, nil
+}
+
+func (s *ScheduledTaskService) ListUserTasks(ctx context.Context, userID int64, filter string, page, pageSize int) (*ScheduledTaskPage, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("user_id must be positive")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+
+	query := database.DB.WithContext(ctx).Model(&models.ScheduledTask{}).Where("user_id = ?", userID)
+	switch filter {
+	case "", ScheduledTaskFilterAll:
+		filter = ScheduledTaskFilterAll
+	case ScheduledTaskFilterUnfinished:
+		query = query.Where("status <> ?", "completed")
+	case ScheduledTaskFilterCompleted:
+		query = query.Where("status = ?", "completed")
+	default:
+		return nil, fmt.Errorf("unsupported scheduled task filter %q", filter)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+	tasks := make([]models.ScheduledTask, 0)
+	if err := query.Order("scheduled_at DESC, id DESC").Limit(pageSize).Offset((page - 1) * pageSize).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return &ScheduledTaskPage{
+		Tasks: tasks, Total: total, Page: page, PageSize: pageSize,
+		TotalPages: totalPages, HasNext: page < totalPages,
+	}, nil
 }
 
 func (s *ScheduledTaskService) UpdateTask(task *models.ScheduledTask, updates map[string]interface{}) error {

@@ -270,6 +270,37 @@ func TestScheduledTaskStartSchedulerStopsWithContext(t *testing.T) {
 	}
 }
 
+func TestScheduledTaskServiceListUserTasks(t *testing.T) {
+	setupServiceTestDB(t)
+	service := NewScheduledTaskService()
+	base := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	tasks := []models.ScheduledTask{
+		{UserID: 1, FunctionName: "send_message", Status: "pending", ScheduledAt: base.Add(time.Hour)},
+		{UserID: 1, FunctionName: "send_message", Status: "failed", ScheduledAt: base.Add(2 * time.Hour)},
+		{UserID: 1, FunctionName: "send_message", Status: "completed", ScheduledAt: base.Add(3 * time.Hour)},
+		{UserID: 2, FunctionName: "send_message", Status: "pending", ScheduledAt: base.Add(4 * time.Hour)},
+	}
+	if err := database.DB.Create(&tasks).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	unfinished, err := service.ListUserTasks(context.Background(), 1, ScheduledTaskFilterUnfinished, 1, 1)
+	if err != nil || unfinished.Total != 2 || unfinished.TotalPages != 2 || !unfinished.HasNext || len(unfinished.Tasks) != 1 || unfinished.Tasks[0].Status != "failed" {
+		t.Fatalf("unfinished page = %#v, %v", unfinished, err)
+	}
+	completed, err := service.ListUserTasks(context.Background(), 1, ScheduledTaskFilterCompleted, 1, 10)
+	if err != nil || completed.Total != 1 || len(completed.Tasks) != 1 || completed.Tasks[0].Status != "completed" {
+		t.Fatalf("completed page = %#v, %v", completed, err)
+	}
+	all, err := service.ListUserTasks(context.Background(), 1, ScheduledTaskFilterAll, 1, 10)
+	if err != nil || all.Total != 3 || len(all.Tasks) != 3 {
+		t.Fatalf("all page = %#v, %v", all, err)
+	}
+	if _, err := service.ListUserTasks(context.Background(), 1, "unknown", 1, 10); err == nil {
+		t.Fatal("ListUserTasks accepted an unsupported filter")
+	}
+}
+
 func TestUserProfileSummaryService(t *testing.T) {
 	setupServiceTestDB(t)
 	service := NewUserProfileSummaryService()
