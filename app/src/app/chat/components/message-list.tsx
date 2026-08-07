@@ -188,13 +188,13 @@ export function MessageList({
                     message.role === "user" ? "chat-user-bubble" : "bg-muted"
                   )}
                 >
-                  {showVoiceChat && message.voice_file && (
+                  {(message.role === "user" || showVoiceChat) && message.voice_file && (
                     <VoicePlayer
                       voiceFile={message.voice_file}
                       role={message.role === "user" ? "user" : "assistant"}
                     />
                   )}
-                  {showTextChat ? (
+                  {message.role === "user" || showTextChat ? (
                     <>
                       <div
                         className={cn(
