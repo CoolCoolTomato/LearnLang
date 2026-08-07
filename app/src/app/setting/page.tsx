@@ -36,6 +36,7 @@ import { getSettings, updateSettings } from "@/api/settings"
 import { setLanguage } from "@/i18n"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { ThemeColorSelect } from "@/components/theme/theme-color-select"
+import { Switch } from "@/components/ui/switch"
 import { getErrorMessage } from "@/lib/error"
 
 import { SettingsSection } from "./components/settings-section"
@@ -83,6 +84,9 @@ export default function Page() {
     tts_api_key: "",
     tts_model: "",
     tts_voice: "",
+
+    show_voice_chat: true,
+    show_text_chat: true,
 
     native_language: "",
     target_language: "",
@@ -165,6 +169,9 @@ export default function Page() {
         tts_model: s.tts_model || "",
         tts_voice: s.tts_voice || "",
 
+        show_voice_chat: s.show_voice_chat !== false,
+        show_text_chat: s.show_text_chat !== false,
+
         native_language: s.native_language || "",
         target_language: s.target_language || "",
         timezone: s.timezone || "",
@@ -219,6 +226,8 @@ export default function Page() {
         tts_api_key: settingsFormData.tts_api_key || undefined,
         tts_model: settingsFormData.tts_model || undefined,
         tts_voice: settingsFormData.tts_voice || undefined,
+        show_voice_chat: settingsFormData.show_voice_chat,
+        show_text_chat: settingsFormData.show_text_chat,
         native_language: settingsFormData.native_language || undefined,
         target_language: settingsFormData.target_language || undefined,
         timezone: settingsFormData.timezone || undefined,
@@ -354,6 +363,48 @@ export default function Page() {
                     className="h-10"
                   />
                 </Field>
+
+                <div className="grid gap-3 rounded-xl border border-border/60 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        {t("settings.showVoiceChat")}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("settings.showVoiceChatDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settingsFormData.show_voice_chat}
+                      disabled={!settingsFormData.show_text_chat}
+                      onCheckedChange={(checked) =>
+                        patchForm({ show_voice_chat: checked })
+                      }
+                      aria-label={t("settings.showVoiceChat")}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        {t("settings.showTextChat")}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("settings.showTextChatDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settingsFormData.show_text_chat}
+                      disabled={!settingsFormData.show_voice_chat}
+                      onCheckedChange={(checked) =>
+                        patchForm({ show_text_chat: checked })
+                      }
+                      aria-label={t("settings.showTextChat")}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.chatDisplayHint")}
+                  </p>
+                </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label={t("settings.nativeLanguage")}>

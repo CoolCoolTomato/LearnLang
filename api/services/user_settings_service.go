@@ -11,7 +11,10 @@ import (
 
 type UserSettingsService struct{}
 
-var ErrInvalidLLMType = errors.New("invalid LLM type")
+var (
+	ErrInvalidLLMType             = errors.New("invalid LLM type")
+	ErrChatDisplaySettingsInvalid = errors.New("at least one chat display option must be enabled")
+)
 
 func NewUserSettingsService() *UserSettingsService {
 	return &UserSettingsService{}
@@ -19,8 +22,10 @@ func NewUserSettingsService() *UserSettingsService {
 
 func (uss *UserSettingsService) CreateUserSettings(userID int64) error {
 	settings := models.UserSettings{
-		UserID:  userID,
-		LLMType: models.LLMTypeOpenAI,
+		UserID:        userID,
+		LLMType:       models.LLMTypeOpenAI,
+		ShowVoiceChat: true,
+		ShowTextChat:  true,
 	}
 	return database.DB.Create(&settings).Error
 }
@@ -47,6 +52,16 @@ func (uss *UserSettingsService) GetUserSettings(userID int64) (*models.UserSetti
 			return nil, err
 		}
 		settings.LLMType = normalizedType
+	}
+	if !settings.ShowVoiceChat && !settings.ShowTextChat {
+		if err := database.DB.Model(&settings).Updates(map[string]interface{}{
+			"show_voice_chat": true,
+			"show_text_chat":  true,
+		}).Error; err != nil {
+			return nil, err
+		}
+		settings.ShowVoiceChat = true
+		settings.ShowTextChat = true
 	}
 	return &settings, nil
 }
@@ -135,7 +150,18 @@ func (uss *UserSettingsService) UpdateUserSettings(userID int64, updates map[str
 			if v, ok := value.(string); ok && v != "" {
 				settings.Timezone = v
 			}
+		case "show_voice_chat":
+			if v, ok := value.(bool); ok {
+				settings.ShowVoiceChat = v
+			}
+		case "show_text_chat":
+			if v, ok := value.(bool); ok {
+				settings.ShowTextChat = v
+			}
 		}
+	}
+	if !settings.ShowVoiceChat && !settings.ShowTextChat {
+		return nil, ErrChatDisplaySettingsInvalid
 	}
 
 	if err := database.DB.Save(&settings).Error; err != nil {

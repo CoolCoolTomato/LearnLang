@@ -150,6 +150,17 @@ func TestUpdateSettingsRejectsInvalidLLMType(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsRejectsHiddenVoiceAndText(t *testing.T) {
+	context, recorder := controllerContext(http.MethodPut, "/", `{"show_voice_chat":false,"show_text_chat":false}`)
+	context.Set("user_id", int64(1))
+
+	NewProfileController(nil, nil).UpdateMySettings(context)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "chat display") {
+		t.Fatalf("hidden voice and text = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAvatarValidationPaths(t *testing.T) {
 	controller := NewProfileController(nil, nil)
 	for _, filename := range []string{"", "../secret", "a..b"} {

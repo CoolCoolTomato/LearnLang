@@ -54,6 +54,8 @@ type UpdateMySettingsRequest struct {
 	TTSAPIKey           string `json:"tts_api_key"`
 	TTSModel            string `json:"tts_model"`
 	TTSVoice            string `json:"tts_voice"`
+	ShowVoiceChat       *bool  `json:"show_voice_chat"`
+	ShowTextChat        *bool  `json:"show_text_chat"`
 	NativeLanguage      string `json:"native_language"`
 	TargetLanguage      string `json:"target_language"`
 	Timezone            string `json:"timezone"`
@@ -296,6 +298,16 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 	if req.TTSVoice != "" {
 		updates["tts_voice"] = req.TTSVoice
 	}
+	if req.ShowVoiceChat != nil {
+		updates["show_voice_chat"] = *req.ShowVoiceChat
+	}
+	if req.ShowTextChat != nil {
+		updates["show_text_chat"] = *req.ShowTextChat
+	}
+	if req.ShowVoiceChat != nil && req.ShowTextChat != nil && !*req.ShowVoiceChat && !*req.ShowTextChat {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one chat display option must be enabled"})
+		return
+	}
 	if req.NativeLanguage != "" {
 		updates["native_language"] = req.NativeLanguage
 	}
@@ -309,6 +321,10 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 	settings, err := pc.userSettingsService.UpdateUserSettings(userID.(int64), updates)
 	if err != nil {
 		log.Printf("failed to update settings for user %d: %v", userID.(int64), err)
+		if errors.Is(err, services.ErrChatDisplaySettingsInvalid) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "At least one chat display option must be enabled"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}

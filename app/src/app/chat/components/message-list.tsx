@@ -15,6 +15,8 @@ import { MessageVocabularyText } from "./message-vocabulary-text"
 
 interface MessageListProps {
   messages: ChatMessage[]
+  showVoiceChat?: boolean
+  showTextChat?: boolean
   loading?: boolean
   loadingMore?: boolean
   hasMore?: boolean
@@ -23,6 +25,8 @@ interface MessageListProps {
 
 export function MessageList({
   messages,
+  showVoiceChat = true,
+  showTextChat = true,
   loading,
   loadingMore,
   hasMore,
@@ -184,25 +188,29 @@ export function MessageList({
                     message.role === "user" ? "chat-user-bubble" : "bg-muted"
                   )}
                 >
-                  {message.voice_file && (
+                  {showVoiceChat && message.voice_file && (
                     <VoicePlayer
                       voiceFile={message.voice_file}
                       role={message.role === "user" ? "user" : "assistant"}
                     />
                   )}
-                  <div
-                    className={cn(
-                      showTranslation[message.id] && message.translation
-                        ? "hidden"
-                        : "block"
-                    )}
-                  >
-                    <MessageVocabularyText message={message} />
-                  </div>
-                  {showTranslation[message.id] && message.translation ? (
-                    <div className="text-sm break-words whitespace-pre-wrap">
-                      {message.translation}
-                    </div>
+                  {showTextChat ? (
+                    <>
+                      <div
+                        className={cn(
+                          showTranslation[message.id] && message.translation
+                            ? "hidden"
+                            : "block"
+                        )}
+                      >
+                        <MessageVocabularyText message={message} />
+                      </div>
+                      {showTranslation[message.id] && message.translation ? (
+                        <div className="text-sm break-words whitespace-pre-wrap">
+                          {message.translation}
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
                   {message.created_at && (
                     <div className="mt-1 text-xs opacity-70">
