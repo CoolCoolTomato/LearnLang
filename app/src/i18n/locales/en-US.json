@@ -61,7 +61,7 @@
   },
   "chat": {
     "inputPlaceholder": "Type a message...",
-    "audioReady": "Audio recorded, click to send",
+    "transcribeFailed": "Failed to transcribe audio",
     "microphoneError": "Cannot access microphone",
     "loading": "Loading...",
     "today": "Today",

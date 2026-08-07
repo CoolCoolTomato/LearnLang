@@ -54,19 +54,12 @@ func (s *ChatService) TranscribeAudio(ctx context.Context, userID int64, audioFi
 	return s.runtime.TranscribeAudio(ctx, userID, audioFile)
 }
 
-func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string) (*models.Message, error) {
-	message, err := s.runtime.CreateUserMessage(ctx, userID, userMessage, nil, "text")
-	if err != nil {
-		return nil, err
+func (s *ChatService) Chat(ctx context.Context, userID int64, userMessage string, voiceFileID *int64) (*models.Message, error) {
+	inputType := "text"
+	if voiceFileID != nil {
+		inputType = "voice"
 	}
-
-	s.archiveConversation(userID)
-	s.restartAIResponse(userID, message)
-	return message, nil
-}
-
-func (s *ChatService) ChatWithVoice(ctx context.Context, userID int64, userMessage string, voiceFileID *int64) (*models.Message, error) {
-	message, err := s.runtime.CreateUserMessage(ctx, userID, userMessage, voiceFileID, "voice")
+	message, err := s.runtime.CreateUserMessage(ctx, userID, userMessage, voiceFileID, inputType)
 	if err != nil {
 		return nil, err
 	}

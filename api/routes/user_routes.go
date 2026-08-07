@@ -35,7 +35,7 @@ func SetupUserRoutes(api *gin.RouterGroup, cfg *config.Config, tokenManager *uti
 	{
 		chat.POST("", chatController.Chat)
 		chat.POST("/translate", translationController.Translate)
-		chat.POST("/voice", chatController.VoiceChat)
+		chat.POST("/transcribe", chatController.Transcribe)
 		chat.GET("/history", chatController.GetChatHistory)
 	}
 

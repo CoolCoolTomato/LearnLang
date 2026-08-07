@@ -1,11 +1,17 @@
 export interface ChatRequest {
   message: string
+  voice_file_id?: number
 }
 export type MessageRole = "user" | "assistant" | "system"
 
-export type InputType = "text" | "audio"
+export type InputType = "text" | "voice"
 
 export type ChatResponse = ChatMessage
+
+export interface TranscriptionResponse {
+  text: string
+  voice_file_id: number
+}
 
 export interface ChatHistoryRequest {
   before_id?: number

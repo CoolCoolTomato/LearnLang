@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"learnlang-api/database"
 	"learnlang-api/models"
@@ -52,13 +53,27 @@ func setupChatRuntimeTest(t *testing.T, apiBaseURL string) (*ChatRuntimeService,
 
 func TestChatRuntimeMessageAndTaskOperations(t *testing.T) {
 	runtime, hub := setupChatRuntimeTest(t, "http://127.0.0.1:1")
-	voice := models.VoiceFile{UserID: 1, VoiceURL: "secret/path.mp3"}
+	voice := models.VoiceFile{UserID: 1, VoiceRole: "user", VoiceURL: "secret/path.mp3"}
 	if err := database.DB.Create(&voice).Error; err != nil {
 		t.Fatal(err)
 	}
 	message, err := runtime.CreateUserMessage(context.Background(), 1, "hello", &voice.ID, "voice")
-	if err != nil || message.VoiceFile == nil || message.VoiceFile.VoiceURL != "" {
+	if err != nil || message.InputType != "voice" || message.VoiceFile == nil || message.VoiceFile.VoiceURL != "" {
 		t.Fatalf("CreateUserMessage() = %#v, %v", message, err)
+	}
+	otherUserVoice := models.VoiceFile{UserID: 2, VoiceRole: "user", VoiceURL: "other.mp3"}
+	if err := database.DB.Create(&otherUserVoice).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.CreateUserMessage(context.Background(), 1, "hello", &otherUserVoice.ID, "voice"); !errors.Is(err, ErrUserVoiceFileInvalid) {
+		t.Fatalf("cross-user voice error = %v", err)
+	}
+	assistantVoice := models.VoiceFile{UserID: 1, VoiceRole: "assistant", VoiceURL: "assistant.mp3"}
+	if err := database.DB.Create(&assistantVoice).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.CreateUserMessage(context.Background(), 1, "hello", &assistantVoice.ID, "voice"); !errors.Is(err, ErrUserVoiceFileInvalid) {
+		t.Fatalf("assistant voice error = %v", err)
 	}
 
 	taskID, err := runtime.ScheduleMessage(context.Background(), 1, "later", "稍后", time.Date(2026, 8, 1, 1, 0, 0, 0, time.FixedZone("local", 8*3600)))

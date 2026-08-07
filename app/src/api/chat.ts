@@ -1,5 +1,5 @@
 import { http } from './request'
-import type { ChatRequest, ChatResponse, GetChatHistoryParams, GetChatHistoryResponse, ChatMessage } from '@/types/chat'
+import type { ChatRequest, ChatResponse, GetChatHistoryParams, GetChatHistoryResponse, TranscriptionResponse } from '@/types/chat'
 
 export const sendChatMessage = async (data: ChatRequest): Promise<ChatResponse> => {
   return http.post('/chat', data)
@@ -9,8 +9,8 @@ export const getChatHistory = async (params?: GetChatHistoryParams): Promise<Get
   return http.get('/chat/history', { params })
 }
 
-export const sendVoiceMessage = async (audioFile: File): Promise<ChatMessage> => {
+export const transcribeAudio = async (audioFile: File): Promise<TranscriptionResponse> => {
   const formData = new FormData()
   formData.append('audio', audioFile)
-  return http.upload('/chat/voice', formData)
+  return http.upload('/chat/transcribe', formData)
 }

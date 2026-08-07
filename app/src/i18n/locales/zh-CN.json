@@ -61,7 +61,7 @@
   },
   "chat": {
     "inputPlaceholder": "输入消息...",
-    "audioReady": "音频已录制，点击发送",
+    "transcribeFailed": "语音转文字失败",
     "microphoneError": "无法访问麦克风",
     "loading": "加载中...",
     "today": "今天",

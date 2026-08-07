@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { MessageList } from "./components/message-list"
 import { MessageInput } from "./components/message-input"
-import { getChatHistory, sendChatMessage, sendVoiceMessage } from "@/api/chat"
+import { getChatHistory, sendChatMessage } from "@/api/chat"
 import type {
   AgentErrorEvent,
   ChatMessage,
@@ -157,27 +157,19 @@ export default function ChatPage() {
     }
   }
 
-  const handleSend = async (message: string) => {
+  const handleSend = async (message: string, voiceFileID?: number) => {
     try {
       setSending(true)
-      const userMessage = await sendChatMessage({ message })
+      const userMessage = await sendChatMessage({
+        message,
+        voice_file_id: voiceFileID,
+      })
       setMessages((prev) => [...prev, userMessage])
       setIsResponding(true)
+      return true
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t("chat.sendFailed")))
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const handleVoiceSend = async (audioFile: File) => {
-    try {
-      setSending(true)
-      const userMessage = await sendVoiceMessage(audioFile)
-      setMessages((prev) => [...prev, userMessage])
-      setIsResponding(true)
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, t("chat.sendFailed")))
+      return false
     } finally {
       setSending(false)
     }
@@ -200,7 +192,6 @@ export default function ChatPage() {
       <div className="border-t border-border/40 bg-gradient-to-t from-background via-background/95 to-background/70">
         <MessageInput
           onSend={handleSend}
-          onVoiceSend={handleVoiceSend}
           disabled={sending}
         />
       </div>

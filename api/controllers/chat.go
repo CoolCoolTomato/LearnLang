@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"errors"
 	"learnlang-api/agent"
+	"learnlang-api/services"
 	"log"
 	"net/http"
 	"strconv"
@@ -18,10 +20,16 @@ func NewChatController(chatService *agent.ChatService) *ChatController {
 }
 
 type ChatRequest struct {
-	Message string `json:"message" binding:"required"`
+	Message     string `json:"message" binding:"required"`
+	VoiceFileID *int64 `json:"voice_file_id"`
 }
 
-func (cc *ChatController) VoiceChat(c *gin.Context) {
+type TranscriptionResponse struct {
+	Text        string `json:"text"`
+	VoiceFileID int64  `json:"voice_file_id"`
+}
+
+func (cc *ChatController) Transcribe(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -52,15 +60,13 @@ func (cc *ChatController) VoiceChat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to transcribe audio"})
 		return
 	}
-
-	response, err := cc.chatService.ChatWithVoice(c.Request.Context(), userID.(int64), text, voiceFileID)
-	if err != nil {
-		log.Printf("failed to process voice chat for user %d: %v", userID.(int64), err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process chat"})
+	if voiceFileID == nil {
+		log.Printf("transcription succeeded without a voice file for user %d", userID.(int64))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save audio file"})
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, TranscriptionResponse{Text: text, VoiceFileID: *voiceFileID})
 }
 
 func (cc *ChatController) Chat(c *gin.Context) {
@@ -76,9 +82,13 @@ func (cc *ChatController) Chat(c *gin.Context) {
 		return
 	}
 
-	response, err := cc.chatService.Chat(c.Request.Context(), userID.(int64), req.Message)
+	response, err := cc.chatService.Chat(c.Request.Context(), userID.(int64), req.Message, req.VoiceFileID)
 	if err != nil {
 		log.Printf("failed to process chat for user %d: %v", userID.(int64), err)
+		if errors.Is(err, services.ErrUserVoiceFileInvalid) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user voice file"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process chat"})
 		return
 	}

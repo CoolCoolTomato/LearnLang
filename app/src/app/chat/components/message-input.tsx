@@ -7,27 +7,27 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { translateText } from "@/api/translation"
+import { transcribeAudio } from "@/api/chat"
 import { getErrorMessage } from "@/lib/error"
 
 const TRANSLATE_DEBOUNCE_MS = 250
 
 interface MessageInputProps {
-  onSend: (message: string) => void
-  onVoiceSend: (audioFile: File) => void
+  onSend: (message: string, voiceFileID?: number) => Promise<boolean>
   disabled?: boolean
 }
 
 export function MessageInput({
   onSend,
-  onVoiceSend,
   disabled,
 }: MessageInputProps) {
   const { t } = useTranslation()
   const [message, setMessage] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
   const [translationLocked, setTranslationLocked] = useState(false)
-  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [pendingVoiceFileID, setPendingVoiceFileID] = useState<number>()
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const translationRequestRef = useRef(false)
@@ -46,20 +46,17 @@ export function MessageInput({
     }
   }, [])
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (isTranslating || translationRequestRef.current) return
-
-    if (audioFile && !disabled) {
-      onVoiceSend(audioFile)
-      setAudioFile(null)
-      return
-    }
 
     const nextMessage = message.trim()
     if (nextMessage && !disabled) {
-      onSend(nextMessage)
-      setMessage("")
-      setTranslationLocked(false)
+      const sent = await onSend(nextMessage, pendingVoiceFileID)
+      if (sent) {
+        setMessage("")
+        setPendingVoiceFileID(undefined)
+        setTranslationLocked(false)
+      }
     }
   }
 
@@ -76,8 +73,9 @@ export function MessageInput({
       !sourceText ||
       disabled ||
       isRecording ||
-      audioFile ||
+      pendingVoiceFileID ||
       isTranslating ||
+      isTranscribing ||
       translationLocked ||
       translationRequestRef.current
     ) {
@@ -135,8 +133,8 @@ export function MessageInput({
         const file = new File([audioBlob], "recording.webm", {
           type: "audio/webm",
         })
-        setAudioFile(file)
         stream.getTracks().forEach((track) => track.stop())
+        void transcribeRecording(file)
       }
 
       mediaRecorder.start()
@@ -153,6 +151,31 @@ export function MessageInput({
     }
   }
 
+  const transcribeRecording = async (audioFile: File) => {
+    try {
+      setIsTranscribing(true)
+      const response = await transcribeAudio(audioFile)
+      if (!mountedRef.current) return
+      setMessage(response.text)
+      setPendingVoiceFileID(response.voice_file_id)
+      setTranslationLocked(false)
+    } catch (error: unknown) {
+      if (mountedRef.current) {
+        toast.error(getErrorMessage(error, t("chat.transcribeFailed")))
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsTranscribing(false)
+      }
+    }
+  }
+
+  const clearPendingVoice = () => {
+    setPendingVoiceFileID(undefined)
+    setMessage("")
+    setTranslationLocked(false)
+  }
+
   return (
     <div className="p-3 md:p-4">
       <div className="mx-auto flex w-full max-w-4xl items-end gap-2 rounded-2xl p-2">
@@ -163,8 +186,9 @@ export function MessageInput({
             disabled ||
             !message.trim() ||
             isRecording ||
-            Boolean(audioFile) ||
+            pendingVoiceFileID !== undefined ||
             isTranslating ||
+            isTranscribing ||
             translationLocked
           }
           variant="ghost"
@@ -181,22 +205,19 @@ export function MessageInput({
         </Button>
 
         <Textarea
-          value={
-            audioFile ? t("chat.audioReady", "Audio ready to send") : message
-          }
+          value={message}
           onChange={(e) => handleMessageChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t("chat.inputPlaceholder")}
           className="max-h-32 min-h-10 resize-none rounded-xl border border-border/60 bg-background/85 shadow-none focus-visible:ring-1"
           disabled={
-            disabled || isRecording || Boolean(audioFile) || isTranslating
+            disabled || isRecording || isTranscribing || isTranslating
           }
-          readOnly={Boolean(audioFile)}
         />
 
-        {audioFile ? (
+        {pendingVoiceFileID !== undefined ? (
           <Button
-            onClick={() => setAudioFile(null)}
+            onClick={clearPendingVoice}
             disabled={disabled}
             variant="ghost"
             size="icon"
@@ -207,7 +228,7 @@ export function MessageInput({
         ) : (
           <Button
             onClick={isRecording ? stopRecording : startRecording}
-            disabled={disabled || isTranslating}
+            disabled={disabled || isTranscribing || isTranslating}
             variant={isRecording ? "destructive" : "ghost"}
             size="icon"
             className="h-10 w-10 rounded-xl"
@@ -224,8 +245,9 @@ export function MessageInput({
           onClick={handleSend}
           disabled={
             disabled ||
-            (!message.trim() && !audioFile) ||
+            !message.trim() ||
             isRecording ||
+            isTranscribing ||
             isTranslating
           }
           className="h-10 w-10 rounded-xl"

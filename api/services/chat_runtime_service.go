@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"learnlang-api/aiusage"
@@ -19,6 +20,8 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
+
+var ErrUserVoiceFileInvalid = errors.New("invalid user voice file")
 
 type ChatRuntimeService struct {
 	messageService        *MessageService
@@ -240,6 +243,12 @@ func (crs *ChatRuntimeService) recordUsage(ctx context.Context, userID int64, op
 }
 
 func (crs *ChatRuntimeService) CreateUserMessage(ctx context.Context, userID int64, text string, voiceFileID *int64, messageType string) (*models.Message, error) {
+	if voiceFileID != nil {
+		voiceFile, err := crs.voiceFileService.GetVoiceFile(*voiceFileID)
+		if err != nil || voiceFile.UserID != userID || voiceFile.VoiceRole != "user" {
+			return nil, ErrUserVoiceFileInvalid
+		}
+	}
 	message, err := crs.messageService.CreateMessage(ctx, userID, "user", text, "", voiceFileID, messageType)
 	if err != nil {
 		return nil, err

@@ -77,7 +77,7 @@ func TestControllerValidationPaths(t *testing.T) {
 		code int
 	}{
 		{"chat auth", NewChatController(nil).Chat, http.StatusUnauthorized},
-		{"voice chat auth", NewChatController(nil).VoiceChat, http.StatusUnauthorized},
+		{"transcribe auth", NewChatController(nil).Transcribe, http.StatusUnauthorized},
 		{"history auth", NewChatController(nil).GetChatHistory, http.StatusUnauthorized},
 		{"translation auth", NewTranslationController(nil).Translate, http.StatusUnauthorized},
 		{"profile auth", NewProfileController(nil, nil).GetMyProfile, http.StatusUnauthorized},
@@ -111,6 +111,13 @@ func TestAuthenticatedControllerBadRequests(t *testing.T) {
 	NewChatController(nil).GetChatHistory(context)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("history bad request = %d %s", recorder.Code, recorder.Body.String())
+	}
+
+	context, recorder = controllerContext(http.MethodPost, "/", "")
+	context.Set("user_id", int64(1))
+	NewChatController(nil).Transcribe(context)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("transcribe bad request = %d %s", recorder.Code, recorder.Body.String())
 	}
 
 	context, recorder = controllerContext(http.MethodPost, "/", `{}`)
