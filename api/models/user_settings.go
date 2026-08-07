@@ -41,8 +41,6 @@ type UserSettings struct {
 	TTSVoice            string      `gorm:"size:128" json:"tts_voice"`
 	Theme               string      `gorm:"size:32;default:'system'" json:"theme"`
 	Language            string      `gorm:"size:32" json:"language"`
-	ShowVoiceChat       bool        `gorm:"not null;default:true" json:"show_voice_chat"`
-	ShowTextChat        bool        `gorm:"not null;default:true" json:"show_text_chat"`
 	NativeLanguage      string      `gorm:"size:32" json:"native_language"`
 	TargetLanguage      string      `gorm:"size:32" json:"target_language"`
 	Timezone            string      `gorm:"size:64;default:'UTC'" json:"timezone"`

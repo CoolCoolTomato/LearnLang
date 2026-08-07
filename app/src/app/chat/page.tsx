@@ -12,8 +12,8 @@ import type {
   ChatWebSocketEvent,
 } from "@/types/chat"
 import { API_CONFIG, TOKEN_KEY } from "@/api/config"
-import { getSettings } from "@/api/settings"
 import { getErrorMessage } from "@/lib/error"
+import { getChatDisplaySettings } from "@/lib/chat-display-settings"
 import { useOutletContext } from "react-router-dom"
 import type { AppLayoutOutletContext } from "@/components/layout/app-layout"
 
@@ -26,8 +26,7 @@ export default function ChatPage() {
   const [isResponding, setIsResponding] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
-  const [showVoiceChat, setShowVoiceChat] = useState(true)
-  const [showTextChat, setShowTextChat] = useState(true)
+  const [chatDisplaySettings] = useState(getChatDisplaySettings)
   const { setChatConnected, setChatResponding } =
     useOutletContext<AppLayoutOutletContext>()
 
@@ -104,14 +103,9 @@ export default function ChatPage() {
   const loadInitialMessages = useCallback(async () => {
     try {
       setLoading(true)
-      const [response, settings] = await Promise.all([
-        getChatHistory(),
-        getSettings(),
-      ])
+      const response = await getChatHistory()
       setMessages(response.data || [])
       setHasMore((response.data?.length || 0) === 20)
-      setShowVoiceChat(settings.show_voice_chat !== false)
-      setShowTextChat(settings.show_text_chat !== false)
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t("chat.loadMessagesFailed")))
     } finally {
@@ -194,8 +188,8 @@ export default function ChatPage() {
       <div className="min-h-0 flex-1">
         <MessageList
           messages={messages}
-          showVoiceChat={showVoiceChat}
-          showTextChat={showTextChat}
+          showVoiceChat={chatDisplaySettings.showVoiceChat}
+          showTextChat={chatDisplaySettings.showTextChat}
           loading={loading}
           loadingMore={loadingMore}
           hasMore={hasMore}

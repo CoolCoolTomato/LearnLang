@@ -24,8 +24,6 @@ export interface Settings {
   tts_api_key?: string
   tts_model?: string
   tts_voice?: string
-  show_voice_chat?: boolean
-  show_text_chat?: boolean
   native_language?: string
   target_language?: string
   timezone?: string
@@ -49,8 +47,6 @@ export interface UpdateSettingsRequest {
   tts_api_key?: string
   tts_model?: string
   tts_voice?: string
-  show_voice_chat?: boolean
-  show_text_chat?: boolean
   theme?: Theme
   language?: Language
   native_language?: string

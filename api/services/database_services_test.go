@@ -139,19 +139,6 @@ func TestUserSettingsService(t *testing.T) {
 	if _, err := service.UpdateUserSettings(22, map[string]interface{}{"llm_type": "claude"}); !errors.Is(err, ErrInvalidLLMType) {
 		t.Fatalf("invalid LLM type error = %v", err)
 	}
-	if err := database.DB.Model(&models.UserSettings{}).Where("user_id = ?", 22).Updates(map[string]interface{}{
-		"show_voice_chat": false,
-		"show_text_chat":  false,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
-	repaired, err := service.GetUserSettings(22)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !repaired.ShowVoiceChat || !repaired.ShowTextChat {
-		t.Fatalf("chat display settings were not repaired: %#v", repaired)
-	}
 	if _, err := service.UpdateUserSettings(999, map[string]interface{}{"model": "x"}); err == nil {
 		t.Fatal("UpdateUserSettings() updated a missing row")
 	}
