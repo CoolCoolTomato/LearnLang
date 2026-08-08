@@ -351,7 +351,7 @@ func TestTextToSpeechUsesFishAudioRequest(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
-		if payload.Text != "hello" || payload.ReferenceID != "voice-model-id" || payload.Format != "mp3" || payload.Temperature != 0 || payload.TopP != 0 || payload.ChunkLength != 300 || !payload.Normalize || payload.Latency != "normal" || payload.RepetitionPenalty != 1.2 || !payload.ConditionOnPreviousChunks {
+		if payload.Text != "hello" || payload.ReferenceID != "voice-model-id" || payload.Format != "mp3" || payload.Temperature != 0 || payload.TopP != 0.1 || payload.ChunkLength != 300 || !payload.Normalize || payload.Latency != "normal" || payload.RepetitionPenalty != 1.2 || !payload.ConditionOnPreviousChunks {
 			t.Fatalf("Fish Audio payload = %#v", payload)
 		}
 		w.Header().Set("Content-Type", "audio/mpeg")

@@ -64,7 +64,7 @@ func requestFishAudioTTS(ctx context.Context, apiKey, baseURL, model, referenceI
 		Text:                      text,
 		ReferenceID:               referenceID,
 		Temperature:               0,
-		TopP:                      0,
+		TopP:                      0.1,
 		ChunkLength:               300,
 		Normalize:                 true,
 		Latency:                   "normal",
