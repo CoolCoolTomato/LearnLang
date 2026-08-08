@@ -22,9 +22,16 @@ type ttsResponse struct {
 const defaultFishAudioBaseURL = "https://api.fish.audio"
 
 type fishAudioTTSRequest struct {
-	Text        string `json:"text"`
-	ReferenceID string `json:"reference_id"`
-	Format      string `json:"format"`
+	Text                      string  `json:"text"`
+	ReferenceID               string  `json:"reference_id"`
+	Temperature               float64 `json:"temperature"`
+	TopP                      float64 `json:"top_p"`
+	ChunkLength               int     `json:"chunk_length"`
+	Normalize                 bool    `json:"normalize"`
+	Latency                   string  `json:"latency"`
+	RepetitionPenalty         float64 `json:"repetition_penalty"`
+	ConditionOnPreviousChunks bool    `json:"condition_on_previous_chunks"`
+	Format                    string  `json:"format"`
 }
 
 func requestOpenAITTS(ctx context.Context, apiKey, baseURL, model, voice, text string) (*ttsResponse, error) {
@@ -54,9 +61,16 @@ func requestOpenAITTS(ctx context.Context, apiKey, baseURL, model, voice, text s
 
 func requestFishAudioTTS(ctx context.Context, apiKey, baseURL, model, referenceID, text string) (*ttsResponse, error) {
 	payload, err := json.Marshal(fishAudioTTSRequest{
-		Text:        text,
-		ReferenceID: referenceID,
-		Format:      "mp3",
+		Text:                      text,
+		ReferenceID:               referenceID,
+		Temperature:               0,
+		TopP:                      0,
+		ChunkLength:               300,
+		Normalize:                 true,
+		Latency:                   "normal",
+		RepetitionPenalty:         1.2,
+		ConditionOnPreviousChunks: true,
+		Format:                    "mp3",
 	})
 	if err != nil {
 		return nil, err
