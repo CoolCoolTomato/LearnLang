@@ -21,7 +21,7 @@ func (uss *UserSettingsService) CreateUserSettings(userID int64) error {
 	settings := models.UserSettings{
 		UserID:  userID,
 		LLMType: models.LLMTypeOpenAI,
-		TTSType: "openai",
+		TTSType: models.LLMTypeOpenAI,
 	}
 	return database.DB.Create(&settings).Error
 }
@@ -50,10 +50,10 @@ func (uss *UserSettingsService) GetUserSettings(userID int64) (*models.UserSetti
 		settings.LLMType = normalizedType
 	}
 	if settings.TTSType == "" {
-		if err := database.DB.Model(&settings).Update("tts_type", "openai").Error; err != nil {
+		if err := database.DB.Model(&settings).Update("tts_type", models.LLMTypeOpenAI).Error; err != nil {
 			return nil, err
 		}
-		settings.TTSType = "openai"
+		settings.TTSType = models.LLMTypeOpenAI
 	}
 	return &settings, nil
 }
