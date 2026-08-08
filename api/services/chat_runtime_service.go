@@ -148,11 +148,6 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 }
 
 func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, text string, settings *models.UserSettings) (*int64, error) {
-	client := openai.NewClient(
-		option.WithAPIKey(settings.TTSAPIKey),
-		option.WithBaseURL(settings.TTSAPIBaseURL),
-	)
-
 	model := settings.TTSModel
 	if model == "" {
 		model = "tts-1"
@@ -163,14 +158,7 @@ func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, t
 		voice = "alloy"
 	}
 
-	res, err := client.Audio.Speech.New(ctx, openai.AudioSpeechNewParams{
-		Model: openai.SpeechModel(model),
-		Input: text,
-		Voice: openai.AudioSpeechNewParamsVoiceUnion{
-			OfAudioSpeechNewsVoiceString2: openai.String(voice),
-		},
-		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
-	})
+	res, err := requestOpenAITTS(ctx, settings.TTSAPIKey, settings.TTSAPIBaseURL, model, voice, text)
 	if err != nil {
 		crs.recordUsage(ctx, userID, models.AIOperationTTS, model, 0, models.AIUsageUnitCharacters, models.AIUsageStatusFailed)
 		return nil, err
