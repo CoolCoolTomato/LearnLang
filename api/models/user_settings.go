@@ -39,6 +39,7 @@ type UserSettings struct {
 	TTSAPIKey           string      `gorm:"size:255" json:"tts_api_key"`
 	TTSModel            string      `gorm:"size:128" json:"tts_model"`
 	TTSVoice            string      `gorm:"size:128" json:"tts_voice"`
+	TTSType             string      `gorm:"size:32" json:"tts_type"`
 	Theme               string      `gorm:"size:32;default:'system'" json:"theme"`
 	Language            string      `gorm:"size:32" json:"language"`
 	NativeLanguage      string      `gorm:"size:32" json:"native_language"`
