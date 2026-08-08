@@ -606,22 +606,6 @@ export default function Page() {
                   "Speech-to-text settings for voice transcription."
                 )}
               >
-                <Field label={t("settings.ttsProviderType")}>
-                  <Select
-                    value={settingsFormData.tts_type}
-                    onValueChange={(value: TTSType) =>
-                      patchForm({ tts_type: value })
-                    }
-                  >
-                    <SelectTrigger className="h-11 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openai">OpenAI Compatible</SelectItem>
-                      <SelectItem value="fish-audio">Fish Audio</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
                 <ProviderModelSection
                   apiBaseUrl={settingsFormData.stt_api_base_url}
                   apiKey={settingsFormData.stt_api_key}
@@ -665,6 +649,22 @@ export default function Page() {
                   "Text-to-speech settings for AI voice playback."
                 )}
               >
+                <Field label={t("settings.ttsProviderType")}>
+                  <Select
+                    value={settingsFormData.tts_type}
+                    onValueChange={(value: TTSType) =>
+                      patchForm({ tts_type: value })
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI Compatible</SelectItem>
+                      <SelectItem value="fish-audio">Fish Audio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
                 <ProviderModelSection
                   apiBaseUrl={settingsFormData.tts_api_base_url}
                   apiKey={settingsFormData.tts_api_key}
