@@ -10,12 +10,28 @@ const (
 	LLMTypeAnthropic = "anthropic"
 )
 
+const (
+	TTSTypeOpenAI    = "openai"
+	TTSTypeFishAudio = "fish-audio"
+)
+
 func NormalizeLLMType(value string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", LLMTypeOpenAI:
 		return LLMTypeOpenAI, true
 	case LLMTypeAnthropic:
 		return LLMTypeAnthropic, true
+	default:
+		return "", false
+	}
+}
+
+func NormalizeTTSType(value string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", TTSTypeOpenAI:
+		return TTSTypeOpenAI, true
+	case TTSTypeFishAudio:
+		return TTSTypeFishAudio, true
 	default:
 		return "", false
 	}

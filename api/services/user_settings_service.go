@@ -21,7 +21,7 @@ func (uss *UserSettingsService) CreateUserSettings(userID int64) error {
 	settings := models.UserSettings{
 		UserID:  userID,
 		LLMType: models.LLMTypeOpenAI,
-		TTSType: models.LLMTypeOpenAI,
+		TTSType: models.TTSTypeOpenAI,
 	}
 	return database.DB.Create(&settings).Error
 }
@@ -39,21 +39,26 @@ func (uss *UserSettingsService) GetUserSettings(userID int64) (*models.UserSetti
 	} else if err != nil {
 		return nil, err
 	}
-	normalizedType, valid := models.NormalizeLLMType(settings.LLMType)
+	normalizedLLMType, valid := models.NormalizeLLMType(settings.LLMType)
 	if !valid {
-		normalizedType = models.LLMTypeOpenAI
+		normalizedLLMType = models.LLMTypeOpenAI
 	}
-	if settings.LLMType != normalizedType {
-		if err := database.DB.Model(&settings).Update("llm_type", normalizedType).Error; err != nil {
+	if settings.LLMType != normalizedLLMType {
+		if err := database.DB.Model(&settings).Update("llm_type", normalizedLLMType).Error; err != nil {
 			return nil, err
 		}
-		settings.LLMType = normalizedType
+		settings.LLMType = normalizedLLMType
 	}
-	if settings.TTSType == "" {
-		if err := database.DB.Model(&settings).Update("tts_type", models.LLMTypeOpenAI).Error; err != nil {
+
+	normalizedTTSType, valid := models.NormalizeTTSType(settings.TTSType)
+	if !valid {
+		normalizedTTSType = models.TTSTypeOpenAI
+	}
+	if settings.TTSType != normalizedTTSType {
+		if err := database.DB.Model(&settings).Update("tts_type", normalizedTTSType).Error; err != nil {
 			return nil, err
 		}
-		settings.TTSType = models.LLMTypeOpenAI
+		settings.TTSType = normalizedTTSType
 	}
 	return &settings, nil
 }

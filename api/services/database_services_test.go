@@ -121,6 +121,9 @@ func TestUserSettingsService(t *testing.T) {
 	if err != nil || settings.UserID != 22 {
 		t.Fatalf("GetUserSettings() = %#v, %v", settings, err)
 	}
+	if settings.TTSType != models.TTSTypeOpenAI {
+		t.Fatalf("default TTS type = %q, want %q", settings.TTSType, models.TTSTypeOpenAI)
+	}
 	updated, err := service.UpdateUserSettings(22, map[string]interface{}{
 		"api_base_url": "https://api.example", "api_key": "secret", "model": "model",
 		"llm_type": "anthropic", "embedding_api_base_url": "https://embed.example",

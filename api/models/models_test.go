@@ -20,6 +20,26 @@ func TestNormalizeLLMType(t *testing.T) {
 	}
 }
 
+func TestNormalizeTTSType(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		valid bool
+	}{
+		{"", TTSTypeOpenAI, true},
+		{"OPENAI", TTSTypeOpenAI, true},
+		{" fish-audio ", TTSTypeFishAudio, true},
+		{"unknown", "", false},
+	}
+
+	for _, test := range tests {
+		got, valid := NormalizeTTSType(test.input)
+		if got != test.want || valid != test.valid {
+			t.Errorf("NormalizeTTSType(%q) = %q, %t; want %q, %t", test.input, got, valid, test.want, test.valid)
+		}
+	}
+}
+
 func TestModelTableNames(t *testing.T) {
 	tests := map[string]string{
 		(User{}).TableName():                     "users",
