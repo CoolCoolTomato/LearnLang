@@ -337,3 +337,64 @@ func TestChatRuntimeAudioUsesMockHTTP(t *testing.T) {
 		t.Fatal("send message handler accepted invalid JSON")
 	}
 }
+
+func TestTextToSpeechUsesFishAudioRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/tts" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer fish-key" || r.Header.Get("model") != "s2.1-pro-free" {
+			t.Fatalf("Fish Audio headers = %#v", r.Header)
+		}
+		var payload fishAudioTTSRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Text != "hello" || payload.ReferenceID != "voice-model-id" || payload.Format != "mp3" {
+			t.Fatalf("Fish Audio payload = %#v", payload)
+		}
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.Header().Set("x-request-id", "fish-request")
+		_, _ = w.Write([]byte("mock-mp3-content"))
+	}))
+	defer server.Close()
+	runtime, _ := setupChatRuntimeTest(t, server.URL)
+
+	oldWorkingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWorkingDirectory) })
+
+	settings, err := runtime.UserSettings(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.TTSType = models.TTSTypeFishAudio
+	settings.TTSAPIKey = "fish-key"
+	settings.TTSModel = "s2.1-pro-free"
+	settings.TTSVoice = "voice-model-id"
+
+	voiceFileID, err := runtime.TextToSpeech(context.Background(), 1, "hello", settings)
+	if err != nil || voiceFileID == nil || *voiceFileID == 0 {
+		t.Fatalf("TextToSpeech() = %v, %v", voiceFileID, err)
+	}
+}
+
+func TestTextToSpeechRejectsFishAudioWithoutReferenceID(t *testing.T) {
+	runtime, _ := setupChatRuntimeTest(t, "http://127.0.0.1:1")
+	settings, err := runtime.UserSettings(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.TTSType = models.TTSTypeFishAudio
+	settings.TTSVoice = ""
+
+	if _, err := runtime.TextToSpeech(context.Background(), 1, "hello", settings); !errors.Is(err, ErrFishAudioReferenceIDRequired) {
+		t.Fatalf("TextToSpeech() error = %v", err)
+	}
+}

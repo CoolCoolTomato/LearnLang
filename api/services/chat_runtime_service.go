@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -22,6 +23,7 @@ import (
 )
 
 var ErrUserVoiceFileInvalid = errors.New("invalid user voice file")
+var ErrFishAudioReferenceIDRequired = errors.New("Fish Audio reference ID is required")
 
 type ChatRuntimeService struct {
 	messageService        *MessageService
@@ -148,17 +150,36 @@ func (crs *ChatRuntimeService) TranscribeAudio(ctx context.Context, userID int64
 }
 
 func (crs *ChatRuntimeService) TextToSpeech(ctx context.Context, userID int64, text string, settings *models.UserSettings) (*int64, error) {
+	ttsType, valid := models.NormalizeTTSType(settings.TTSType)
+	if !valid {
+		ttsType = models.TTSTypeOpenAI
+	}
+
 	model := settings.TTSModel
 	if model == "" {
-		model = "tts-1"
+		if ttsType == models.TTSTypeFishAudio {
+			model = "s2.1-pro"
+		} else {
+			model = "tts-1"
+		}
 	}
 
 	voice := settings.TTSVoice
-	if voice == "" {
+	if voice == "" && ttsType == models.TTSTypeOpenAI {
 		voice = "alloy"
 	}
 
-	res, err := requestOpenAITTS(ctx, settings.TTSAPIKey, settings.TTSAPIBaseURL, model, voice, text)
+	var res *ttsResponse
+	var err error
+	switch ttsType {
+	case models.TTSTypeFishAudio:
+		if strings.TrimSpace(voice) == "" {
+			return nil, ErrFishAudioReferenceIDRequired
+		}
+		res, err = requestFishAudioTTS(ctx, settings.TTSAPIKey, settings.TTSAPIBaseURL, model, voice, text)
+	default:
+		res, err = requestOpenAITTS(ctx, settings.TTSAPIKey, settings.TTSAPIBaseURL, model, voice, text)
+	}
 	if err != nil {
 		crs.recordUsage(ctx, userID, models.AIOperationTTS, model, 0, models.AIUsageUnitCharacters, models.AIUsageStatusFailed)
 		return nil, err
