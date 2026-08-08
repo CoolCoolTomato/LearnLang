@@ -15,6 +15,7 @@ interface ProviderModelSectionProps {
   loadingModels?: boolean
 
   apiBaseUrlLabel: string
+  apiBaseUrlPlaceholder?: string
   apiKeyLabel: string
   modelLabel: string
 
@@ -34,6 +35,7 @@ export function ProviderModelSection({
   models,
   loadingModels = false,
   apiBaseUrlLabel,
+  apiBaseUrlPlaceholder = "https://api.openai.com/v1",
   apiKeyLabel,
   modelLabel,
   onApiBaseUrlChange,
@@ -54,7 +56,7 @@ export function ProviderModelSection({
           <Input
             value={apiBaseUrl}
             onChange={(e) => onApiBaseUrlChange(e.target.value)}
-            placeholder="https://api.openai.com/v1"
+            placeholder={apiBaseUrlPlaceholder}
             className="h-11 rounded-xl"
           />
         </Field>

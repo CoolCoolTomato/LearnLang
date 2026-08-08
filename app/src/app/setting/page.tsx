@@ -119,6 +119,8 @@ export default function Page() {
     setSettingsFormData((prev) => ({ ...prev, ...patch }))
   }
 
+  const isFishAudio = settingsFormData.tts_type === "fish-audio"
+
   const loadCustomModels = async (
     apiBaseUrl: string,
     apiKey: string,
@@ -671,9 +673,24 @@ export default function Page() {
                   model={settingsFormData.tts_model}
                   models={ttsModels}
                   loadingModels={loadingTtsModels}
-                  apiBaseUrlLabel={t("settings.ttsApiBaseUrl")}
-                  apiKeyLabel={t("settings.ttsApiKey")}
-                  modelLabel={t("settings.ttsModel")}
+                  apiBaseUrlLabel={
+                    isFishAudio
+                      ? t("settings.fishAudioApiBaseUrl")
+                      : t("settings.ttsApiBaseUrl")
+                  }
+                  apiBaseUrlPlaceholder={
+                    isFishAudio ? "https://api.fish.audio" : undefined
+                  }
+                  apiKeyLabel={
+                    isFishAudio
+                      ? t("settings.fishAudioApiKey")
+                      : t("settings.ttsApiKey")
+                  }
+                  modelLabel={
+                    isFishAudio
+                      ? t("settings.fishAudioModel")
+                      : t("settings.ttsModel")
+                  }
                   onApiBaseUrlChange={(value) => {
                     patchForm({ tts_api_base_url: value, tts_model: "" })
                     setTtsModels([])
@@ -683,6 +700,7 @@ export default function Page() {
                     setTtsModels([])
                   }}
                   onModelChange={(value) => patchForm({ tts_model: value })}
+                  manualModelEntry={isFishAudio}
                   onLoadModels={() => {
                     if (
                       settingsFormData.tts_api_base_url &&
@@ -699,13 +717,23 @@ export default function Page() {
                   extra={
                     settingsFormData.tts_api_base_url &&
                     settingsFormData.tts_api_key && (
-                      <Field label={t("settings.ttsVoice")}>
+                      <Field
+                        label={
+                          isFishAudio
+                            ? t("settings.fishAudioReferenceId")
+                            : t("settings.ttsVoice")
+                        }
+                      >
                         <Input
                           value={settingsFormData.tts_voice}
                           onChange={(e) =>
                             patchForm({ tts_voice: e.target.value })
                           }
-                          placeholder={t("settings.ttsVoicePlaceholder")}
+                          placeholder={
+                            isFishAudio
+                              ? t("settings.fishAudioReferenceIdPlaceholder")
+                              : t("settings.ttsVoicePlaceholder")
+                          }
                           className="h-11 rounded-xl"
                         />
                       </Field>
