@@ -54,6 +54,7 @@ type UpdateMySettingsRequest struct {
 	TTSAPIKey           string `json:"tts_api_key"`
 	TTSModel            string `json:"tts_model"`
 	TTSVoice            string `json:"tts_voice"`
+	TTSType             string `json:"tts_type"`
 	NativeLanguage      string `json:"native_language"`
 	TargetLanguage      string `json:"target_language"`
 	Timezone            string `json:"timezone"`
@@ -295,6 +296,14 @@ func (pc *ProfileController) UpdateMySettings(c *gin.Context) {
 	}
 	if req.TTSVoice != "" {
 		updates["tts_voice"] = req.TTSVoice
+	}
+	if req.TTSType != "" {
+		ttsType, valid := models.NormalizeTTSType(req.TTSType)
+		if !valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "TTS type must be openai or fish-audio"})
+			return
+		}
+		updates["tts_type"] = ttsType
 	}
 	if req.NativeLanguage != "" {
 		updates["native_language"] = req.NativeLanguage

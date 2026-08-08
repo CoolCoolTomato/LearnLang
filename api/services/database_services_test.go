@@ -129,18 +129,21 @@ func TestUserSettingsService(t *testing.T) {
 		"llm_type": "anthropic", "embedding_api_base_url": "https://embed.example",
 		"embedding_api_key": "embed-key", "embedding_model": "embed-model", "embedding_dimension": 1024,
 		"stt_api_base_url": "https://stt.example", "stt_api_key": "stt-key", "stt_model": "stt-model",
-		"tts_api_base_url": "https://tts.example", "tts_api_key": "tts-key", "tts_model": "tts-model", "tts_voice": "voice",
+		"tts_api_base_url": "https://tts.example", "tts_api_key": "tts-key", "tts_model": "tts-model", "tts_voice": "voice", "tts_type": "fish-audio",
 		"native_language": "zh-CN", "target_language": "en-US", "timezone": "Asia/Shanghai",
 		"ignored": "value", "theme": "dark", "api_key_wrong_type": 1,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.APIKey != "secret" || updated.LLMType != models.LLMTypeAnthropic || updated.EmbeddingModel != "embed-model" || updated.EmbeddingDimension != 1024 || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.Timezone != "Asia/Shanghai" {
+	if updated.APIKey != "secret" || updated.LLMType != models.LLMTypeAnthropic || updated.EmbeddingModel != "embed-model" || updated.EmbeddingDimension != 1024 || updated.STTModel != "stt-model" || updated.TTSVoice != "voice" || updated.TTSType != models.TTSTypeFishAudio || updated.Timezone != "Asia/Shanghai" {
 		t.Fatalf("updated settings = %#v", updated)
 	}
 	if _, err := service.UpdateUserSettings(22, map[string]interface{}{"llm_type": "claude"}); !errors.Is(err, ErrInvalidLLMType) {
 		t.Fatalf("invalid LLM type error = %v", err)
+	}
+	if _, err := service.UpdateUserSettings(22, map[string]interface{}{"tts_type": "unsupported"}); !errors.Is(err, ErrInvalidTTSType) {
+		t.Fatalf("invalid TTS type error = %v", err)
 	}
 	if _, err := service.UpdateUserSettings(999, map[string]interface{}{"model": "x"}); err == nil {
 		t.Fatal("UpdateUserSettings() updated a missing row")

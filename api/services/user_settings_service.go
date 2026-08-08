@@ -11,7 +11,10 @@ import (
 
 type UserSettingsService struct{}
 
-var ErrInvalidLLMType = errors.New("invalid LLM type")
+var (
+	ErrInvalidLLMType = errors.New("invalid LLM type")
+	ErrInvalidTTSType = errors.New("invalid TTS type")
+)
 
 func NewUserSettingsService() *UserSettingsService {
 	return &UserSettingsService{}
@@ -134,6 +137,14 @@ func (uss *UserSettingsService) UpdateUserSettings(userID int64, updates map[str
 		case "tts_voice":
 			if v, ok := value.(string); ok && v != "" {
 				settings.TTSVoice = v
+			}
+		case "tts_type":
+			if v, ok := value.(string); ok {
+				normalized, valid := models.NormalizeTTSType(v)
+				if !valid {
+					return nil, fmt.Errorf("%w: %q", ErrInvalidTTSType, v)
+				}
+				settings.TTSType = normalized
 			}
 		case "native_language":
 			if v, ok := value.(string); ok && v != "" {

@@ -26,6 +26,7 @@ import type {
   Settings,
   ProviderType,
   LLMType,
+  TTSType,
   Language,
   UpdateSettingsRequest,
 } from "@/types/settings"
@@ -91,6 +92,7 @@ export default function Page() {
     tts_api_key: "",
     tts_model: "",
     tts_voice: "",
+    tts_type: "openai" as TTSType,
 
     native_language: "",
     target_language: "",
@@ -172,6 +174,7 @@ export default function Page() {
         tts_api_key: s.tts_api_key || "",
         tts_model: s.tts_model || "",
         tts_voice: s.tts_voice || "",
+        tts_type: s.tts_type === "fish-audio" ? "fish-audio" : "openai",
 
         native_language: s.native_language || "",
         target_language: s.target_language || "",
@@ -227,6 +230,7 @@ export default function Page() {
         tts_api_key: settingsFormData.tts_api_key || undefined,
         tts_model: settingsFormData.tts_model || undefined,
         tts_voice: settingsFormData.tts_voice || undefined,
+        tts_type: settingsFormData.tts_type,
         native_language: settingsFormData.native_language || undefined,
         target_language: settingsFormData.target_language || undefined,
         timezone: settingsFormData.timezone || undefined,
@@ -533,6 +537,20 @@ export default function Page() {
                   "Used for memory retrieval and semantic matching."
                 )}
               >
+                <Field label={t("settings.ttsProviderType")}>
+                  <Select
+                    value={settingsFormData.tts_type}
+                    onValueChange={(value: TTSType) => patchForm({ tts_type: value })}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI Compatible</SelectItem>
+                      <SelectItem value="fish-audio">Fish Audio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
                 <ProviderModelSection
                   apiBaseUrl={settingsFormData.embedding_api_base_url}
                   apiKey={settingsFormData.embedding_api_key}

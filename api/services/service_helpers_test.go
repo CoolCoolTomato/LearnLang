@@ -85,6 +85,10 @@ func TestDeveloperHelpers(t *testing.T) {
 	if !reflect.DeepEqual(filtered, map[string]any{"role": "user"}) {
 		t.Fatalf("allowedDeveloperValues() = %#v", filtered)
 	}
+	settings := allowedDeveloperValues(DeveloperResourceUserSettings, map[string]any{"tts_type": models.TTSTypeFishAudio, "id": 99})
+	if !reflect.DeepEqual(settings, map[string]any{"tts_type": models.TTSTypeFishAudio}) {
+		t.Fatalf("allowedDeveloperValues(user-settings) = %#v", settings)
+	}
 	if developerModelID(&models.Message{ID: 9}) != 9 || developerModelID(struct{}{}) != 0 {
 		t.Fatal("developerModelID() returned unexpected ID")
 	}
