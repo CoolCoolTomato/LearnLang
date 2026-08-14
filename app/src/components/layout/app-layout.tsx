@@ -106,14 +106,17 @@ export function AppLayout() {
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-sidebar">
-      {mobileOpen ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 animate-in bg-black/35 duration-200 fade-in md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-label={t("navigation.close", "Close sidebar")}
-        />
-      ) : null}
+      <button
+        type="button"
+        className={cn(
+          "fixed inset-0 z-40 bg-black/35 transition-opacity duration-200 ease-out md:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={() => setMobileOpen(false)}
+        aria-label={t("navigation.close", "Close sidebar")}
+        aria-hidden={!mobileOpen}
+        tabIndex={mobileOpen ? 0 : -1}
+      />
 
       <AppSidebar
         desktopOpen={desktopOpen}
@@ -347,11 +350,16 @@ function AppSidebar({
         </aside>
       </div>
 
-      {mobileOpen ? (
-        <aside className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 animate-in flex-col bg-sidebar text-sidebar-foreground shadow-xl duration-200 slide-in-from-left md:hidden">
-          {sidebarContent(true, true)}
-        </aside>
-      ) : null}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 ease-out md:hidden",
+          mobileOpen
+            ? "translate-x-0"
+            : "pointer-events-none -translate-x-full"
+        )}
+      >
+        {sidebarContent(true, true)}
+      </aside>
     </>
   )
 }
