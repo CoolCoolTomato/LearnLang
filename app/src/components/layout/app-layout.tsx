@@ -352,7 +352,7 @@ function AppSidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 ease-out md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 ease-out md:hidden",
           mobileOpen
             ? "translate-x-0"
             : "pointer-events-none -translate-x-full"
