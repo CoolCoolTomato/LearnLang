@@ -287,28 +287,40 @@ export default function VocabularyPage() {
       <main className="order-last min-h-0 min-w-0 lg:order-first">
         <ScrollArea className="h-full">
           <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
-            <div className="mb-3 flex justify-end lg:hidden">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => setMobileLibrariesOpen(true)}
-                aria-label={t("vocabulary.openLibraries")}
-                title={t("vocabulary.openLibraries")}
-              >
-                <PanelRightOpen />
-              </Button>
-            </div>
+            {!selected ? (
+              <div className="mb-3 flex justify-end lg:hidden">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setMobileLibrariesOpen(true)}
+                  aria-label={t("vocabulary.openLibraries")}
+                  title={t("vocabulary.openLibraries")}
+                >
+                  <PanelRightOpen />
+                </Button>
+              </div>
+            ) : null}
             {selected ? (
               <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <BookOpenText className="size-5 text-muted-foreground" />
-                    <h2 className="truncate text-xl font-semibold">
+                    <h2 className="min-w-0 truncate text-xl font-semibold">
                       {selected.name}
                     </h2>
                     {selected.is_default ? (
                       <Star className="size-4 fill-current text-amber-500" />
                     ) : null}
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="ml-auto shrink-0 lg:hidden"
+                      onClick={() => setMobileLibrariesOpen(true)}
+                      aria-label={t("vocabulary.openLibraries")}
+                      title={t("vocabulary.openLibraries")}
+                    >
+                      <PanelRightOpen />
+                    </Button>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
