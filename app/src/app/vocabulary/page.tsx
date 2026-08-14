@@ -476,21 +476,24 @@ export default function VocabularyPage() {
         </ScrollArea>
       </main>
 
-      {mobileLibrariesOpen ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-          onClick={() => setMobileLibrariesOpen(false)}
-          aria-label={t("vocabulary.closeLibraries")}
-        />
-      ) : null}
+      <button
+        type="button"
+        className={cn(
+          "fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ease-out lg:hidden",
+          mobileLibrariesOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={() => setMobileLibrariesOpen(false)}
+        aria-label={t("vocabulary.closeLibraries")}
+        aria-hidden={!mobileLibrariesOpen}
+        tabIndex={mobileLibrariesOpen ? 0 : -1}
+      />
 
       <aside
         className={cn(
-          "order-first min-h-0 border-b border-border/70 bg-background lg:order-last lg:border-b-0 lg:border-l",
+          "fixed inset-y-0 right-0 z-50 order-first flex h-svh min-h-0 w-[min(86vw,22rem)] flex-col border-b border-border/70 bg-background shadow-xl transition-transform duration-200 ease-out lg:static lg:order-last lg:h-auto lg:w-auto lg:translate-x-0 lg:border-b-0 lg:border-l lg:shadow-none",
           mobileLibrariesOpen
-            ? "fixed inset-y-0 right-0 z-50 flex h-svh w-[min(86vw,22rem)] flex-col border-l shadow-xl lg:static lg:h-auto lg:w-auto lg:shadow-none"
-            : "hidden lg:block"
+            ? "translate-x-0"
+            : "pointer-events-none translate-x-full lg:pointer-events-auto lg:translate-x-0"
         )}
       >
         <div
