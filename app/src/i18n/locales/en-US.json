@@ -308,6 +308,8 @@
     "libraries": "Vocabulary lists",
     "collapseLibraries": "Collapse vocabulary lists",
     "expandLibraries": "Expand vocabulary lists",
+    "openLibraries": "Open vocabulary lists",
+    "closeLibraries": "Close vocabulary lists",
     "create": "New vocabulary",
     "edit": "Edit vocabulary",
     "delete": "Delete vocabulary",

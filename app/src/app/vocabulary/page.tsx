@@ -12,6 +12,7 @@ import {
   Star,
   Trash2,
   Upload,
+  X,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -62,6 +63,7 @@ export default function VocabularyPage() {
   const [librariesOpen, setLibrariesOpen] = React.useState(
     () => localStorage.getItem(LIBRARIES_PANEL_STORAGE_KEY) !== "false"
   )
+  const [mobileLibrariesOpen, setMobileLibrariesOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("")
   const [data, setData] = React.useState<VocabularyPageData | null>(null)
@@ -285,6 +287,17 @@ export default function VocabularyPage() {
       <main className="order-last min-h-0 min-w-0 lg:order-first">
         <ScrollArea className="h-full">
           <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-5 md:px-6 md:py-7">
+            <div className="mb-3 flex justify-end lg:hidden">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setMobileLibrariesOpen(true)}
+                aria-label={t("vocabulary.openLibraries")}
+                title={t("vocabulary.openLibraries")}
+              >
+                <PanelRightOpen />
+              </Button>
+            </div>
             {selected ? (
               <section className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
                 <div className="min-w-0">
@@ -451,10 +464,26 @@ export default function VocabularyPage() {
         </ScrollArea>
       </main>
 
-      <aside className="order-first min-h-0 border-b border-border/70 lg:order-last lg:border-b-0 lg:border-l">
+      {mobileLibrariesOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          onClick={() => setMobileLibrariesOpen(false)}
+          aria-label={t("vocabulary.closeLibraries")}
+        />
+      ) : null}
+
+      <aside
+        className={cn(
+          "order-first min-h-0 border-b border-border/70 bg-background lg:order-last lg:border-b-0 lg:border-l",
+          mobileLibrariesOpen
+            ? "fixed inset-y-0 right-0 z-50 flex h-svh w-[min(86vw,22rem)] flex-col border-l shadow-xl lg:static lg:h-auto lg:w-auto lg:shadow-none"
+            : "hidden lg:block"
+        )}
+      >
         <div
           className={cn(
-            "flex items-center justify-between gap-2 px-4 py-3 lg:h-14 lg:border-b lg:border-border/70",
+            "flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4",
             !librariesOpen && "lg:justify-center lg:px-2"
           )}
         >
@@ -491,27 +520,40 @@ export default function VocabularyPage() {
             >
               {librariesOpen ? <PanelRightClose /> : <PanelRightOpen />}
             </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="lg:hidden"
+              onClick={() => setMobileLibrariesOpen(false)}
+              aria-label={t("vocabulary.closeLibraries")}
+              title={t("vocabulary.closeLibraries")}
+            >
+              <X />
+            </Button>
           </div>
         </div>
         <ScrollArea
           className={cn(
-            "h-24 lg:h-[calc(100%-3.5rem)]",
+            "h-[calc(100%-3.5rem)] lg:h-[calc(100%-3.5rem)]",
             !librariesOpen && "lg:hidden"
           )}
           scrollbars="both"
         >
-          <div className="flex w-max gap-2 px-3 pb-3 lg:w-auto lg:flex-col lg:p-2">
+          <div className="flex w-full flex-col gap-2 p-3 lg:w-auto lg:p-2">
             {vocabularies.map((vocabulary) => (
               <button
                 key={vocabulary.id}
                 type="button"
                 className={cn(
-                  "w-48 rounded-md border px-3 py-2 text-left transition-colors lg:w-auto",
+                  "w-full rounded-md border px-3 py-2 text-left transition-colors lg:w-auto",
                   vocabulary.id === selectedID
                     ? "border-primary/30 bg-background shadow-sm"
                     : "border-transparent hover:bg-muted"
                 )}
-                onClick={() => setSelectedID(vocabulary.id)}
+                onClick={() => {
+                  setSelectedID(vocabulary.id)
+                  setMobileLibrariesOpen(false)
+                }}
               >
                 <div className="flex items-center gap-1.5">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">

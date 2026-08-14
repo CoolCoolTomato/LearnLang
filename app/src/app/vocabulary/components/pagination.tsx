@@ -51,13 +51,13 @@ export function Pagination({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-      <span className="text-xs text-muted-foreground">
+    <div className="flex flex-col gap-3 border-t border-border/70 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-xs text-muted-foreground sm:shrink-0">
         {t("vocabulary.pagination", { page, totalPages, total })}
       </span>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground max-[380px]:sr-only">
             {t("vocabulary.pageSize")}
           </span>
           <Select

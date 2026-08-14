@@ -308,6 +308,8 @@
     "libraries": "词库列表",
     "collapseLibraries": "收起词库列表",
     "expandLibraries": "展开词库列表",
+    "openLibraries": "打开词库列表",
+    "closeLibraries": "关闭词库列表",
     "create": "新建词库",
     "edit": "编辑词库",
     "delete": "删除词库",
