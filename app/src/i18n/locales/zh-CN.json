@@ -141,6 +141,7 @@
     "description": "管理您的语言偏好、主题和 AI 模型供应商。",
     "generalTitle": "通用",
     "generalDescription": "基本外观和语言学习偏好。",
+    "generalShortDescription": "外观和语言偏好",
     "chatModelTitle": "对话模型",
     "chatModelDescription": "用于主要对话和 AI 回复。",
     "embeddingSettings": "向量模型",

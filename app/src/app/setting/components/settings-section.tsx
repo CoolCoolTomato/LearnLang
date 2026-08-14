@@ -16,10 +16,7 @@ export function SettingsSection({
 }: SettingsSectionProps) {
   return (
     <section
-      className={cn(
-        "bg-background/75 p-5 md:p-6",
-        className
-      )}
+      className={cn("bg-background/75 px-5 pb-5 md:px-6 md:pb-6", className)}
     >
       <div className="mb-5">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>

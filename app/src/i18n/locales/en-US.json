@@ -141,6 +141,7 @@
     "description": "Manage your language preferences, theme, and AI model providers.",
     "generalTitle": "General",
     "generalDescription": "Basic appearance and language learning preferences.",
+    "generalShortDescription": "Appearance and language preferences.",
     "chatModelTitle": "Chat Model",
     "chatModelDescription": "Used for the main conversation and AI replies.",
     "embeddingSettings": "Embedding Model",

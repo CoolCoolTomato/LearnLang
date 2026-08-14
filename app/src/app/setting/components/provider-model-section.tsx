@@ -57,7 +57,7 @@ export function ProviderModelSection({
             value={apiBaseUrl}
             onChange={(e) => onApiBaseUrlChange(e.target.value)}
             placeholder={apiBaseUrlPlaceholder}
-            className="h-11 rounded-xl"
+            className="h-10 rounded-xl md:h-11"
           />
         </Field>
 
@@ -66,7 +66,7 @@ export function ProviderModelSection({
             type="password"
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
-            className="h-11 rounded-xl"
+            className="h-10 rounded-xl md:h-11"
           />
         </Field>
       </div>
@@ -78,7 +78,7 @@ export function ProviderModelSection({
               value={model}
               onChange={(event) => onModelChange(event.target.value)}
               placeholder={t("settings.enterModel")}
-              className="h-11 rounded-xl"
+              className="h-10 rounded-xl md:h-11"
             />
           </Field>
         ) : (
@@ -94,14 +94,14 @@ export function ProviderModelSection({
                     : t("settings.selectModel")
                 }
                 disabled={loadingModels || models.length === 0}
-                className="h-11 flex-1"
+                className="h-10 md:h-11 md:flex-1"
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={onLoadModels}
                 disabled={loadingModels}
-                className="h-11 rounded-xl px-4"
+                className="h-10 rounded-xl px-4 md:h-11"
               >
                 {loadingModels
                   ? t("systemSettings.loadingModels")
