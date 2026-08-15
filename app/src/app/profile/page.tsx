@@ -220,9 +220,9 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6 md:py-10">
-        <main className="overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm">
-          <section className="p-5 sm:p-7">
+      <div className="mx-auto w-full max-w-4xl py-2 sm:px-4 sm:py-6 md:px-6 md:py-10">
+        <main className="overflow-hidden bg-background sm:rounded-2xl sm:border sm:border-border/70 sm:shadow-sm">
+          <section className="px-4 py-5 sm:p-7">
             <div className="flex min-w-0 items-center gap-4 sm:gap-5">
               <button
                 type="button"
@@ -272,7 +272,7 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section className="border-t border-border/70 p-5 sm:p-7">
+          <section className="border-t border-border/70 px-4 py-5 sm:p-7">
             <div className="grid gap-5">
               <div className="grid gap-2">
                 <label
@@ -336,7 +336,7 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section className="border-t border-border/70 p-5 sm:p-7">
+          <section className="border-t border-border/70 px-4 py-5 sm:p-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
