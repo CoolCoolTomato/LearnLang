@@ -285,7 +285,7 @@ export default function ProfilePage() {
                   id="profile-username"
                   value={formData.username}
                   onChange={(e) => handleChange({ username: e.target.value })}
-                  className="h-11"
+                  className="h-10"
                   placeholder="tomato"
                 />
               </div>
@@ -302,7 +302,7 @@ export default function ProfilePage() {
                     id="profile-email"
                     value={formData.email}
                     onChange={(e) => handleChange({ email: e.target.value })}
-                    className="h-11"
+                    className="h-10"
                     placeholder="user@example.com"
                   />
                 </div>
@@ -318,7 +318,7 @@ export default function ProfilePage() {
                     id="profile-phone"
                     value={formData.phone}
                     onChange={(e) => handleChange({ phone: e.target.value })}
-                    className="h-11"
+                    className="h-10"
                     placeholder=""
                   />
                 </div>
