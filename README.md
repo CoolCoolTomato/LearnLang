@@ -1,3 +1,5 @@
+
+
 # LearnLang
 
 <div align="center">
@@ -64,6 +66,7 @@ The upstream vocabulary project retains ownership of its content and license. Re
 
 - Docker Engine with Docker Compose v2 for containerized deployment
 - Go and pnpm when running from source
+- Rust and Cargo for the Tauri desktop client
 - AI provider credentials for chat, embeddings, speech-to-text, and text-to-speech
 
 ### Run with Docker
